@@ -63,6 +63,7 @@ export const DIDAvatar = ({ videoUrl, isLoading, isSpeaking, onVideoEnded }: DID
               <button
                 className="px-4 py-2 rounded-md bg-primary text-primary-foreground shadow"
                 onClick={() => {
+                  setIsVideoReady(false);
                   videoRef.current?.play().catch(err => console.error('Video play blocked:', err));
                 }}
               >
