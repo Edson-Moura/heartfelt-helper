@@ -23,11 +23,7 @@ export const DIDAvatar = ({ videoUrl, isLoading, isSpeaking, onVideoEnded }: DID
 
   const handleCanPlay = () => {
     setIsVideoReady(true);
-    if (videoRef.current) {
-      videoRef.current.play().catch(error => {
-        console.error('Error playing video:', error);
-      });
-    }
+    // Don't autoplay to avoid browser restrictions; user will click overlay
   };
 
   const handleVideoEnded = () => {
@@ -59,8 +55,21 @@ export const DIDAvatar = ({ videoUrl, isLoading, isSpeaking, onVideoEnded }: DID
             onCanPlay={handleCanPlay}
             onEnded={handleVideoEnded}
             playsInline
-            muted={false}
+            controls={false}
           />
+
+          {isVideoReady && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
+              <button
+                className="px-4 py-2 rounded-md bg-primary text-primary-foreground shadow"
+                onClick={() => {
+                  videoRef.current?.play().catch(err => console.error('Video play blocked:', err));
+                }}
+              >
+                Play response
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">

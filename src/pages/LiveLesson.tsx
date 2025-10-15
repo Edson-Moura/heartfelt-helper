@@ -234,6 +234,7 @@ export default function LiveLesson() {
 
       if (ttsError) {
         console.error('ElevenLabs TTS error:', ttsError);
+        toast({ title: 'ElevenLabs indisponível', description: 'Verifique a API key do ElevenLabs (401). Usando fallback.', variant: 'destructive' });
         throw new Error('Falha ao gerar áudio');
       }
 
