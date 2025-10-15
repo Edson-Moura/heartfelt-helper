@@ -176,27 +176,11 @@ export default function LiveLesson() {
   const speakText = async (text: string) => {
     setIsSpeaking(true);
     setIsGeneratingVideo(true);
-    
+
     try {
       console.log('Starting speakText with:', text);
-      
-      // Step 1: Generate audio with ElevenLabs
-      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-        body: { 
-          text,
-          voice: 'Sarah',
-          model: 'eleven_turbo_v2_5'
-        },
-      });
 
-      if (ttsError) {
-        console.error('ElevenLabs TTS error:', ttsError);
-        throw new Error('Falha ao gerar áudio');
-      }
-
-      console.log('ElevenLabs audio generated successfully');
-
-      // Step 2: Create D-ID video with the text
+      // 1) Tentar gerar o vídeo do avatar D-ID primeiro
       const { data: createData, error: createError } = await supabase.functions.invoke('did-avatar', {
         body: {
           text,
@@ -204,124 +188,93 @@ export default function LiveLesson() {
         },
       });
 
-      if (createError || !createData || !createData.id) {
-        console.error('D-ID creation error:', createError);
-        
-        // Fallback: play audio only
-        setIsGeneratingVideo(false);
-        
-        if (ttsData.audioContent) {
-          const audio = new Audio(`data:audio/mpeg;base64,${ttsData.audioContent}`);
-          audio.onended = () => setIsSpeaking(false);
-          await audio.play();
-          
-          toast({
-            title: "Modo áudio",
-            description: "Avatar temporariamente indisponível. Reproduzindo áudio.",
+      if (!createError && createData?.id) {
+        const streamId = createData.id;
+        console.log('D-ID talk created:', streamId);
+
+        const checkStatus = async () => {
+          const { data: statusData, error: statusError } = await supabase.functions.invoke('did-avatar', {
+            body: { action: 'status', streamId },
           });
-        }
+
+          if (statusError) {
+            console.error('D-ID status error:', statusError);
+            throw statusError;
+          }
+
+          console.log('D-ID status:', statusData.status);
+
+          if (statusData.status === 'done') {
+            setVideoUrl(statusData.result_url);
+            setIsGeneratingVideo(false);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          } else if (statusData.status === 'error' || statusData.status === 'failed') {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+            throw new Error('D-ID generation failed');
+          }
+        };
+
+        // Start polling every 2s
+        pollIntervalRef.current = window.setInterval(checkStatus, 2000);
+        return; // Já iniciamos o fluxo do avatar
+      }
+
+      console.warn('D-ID unavailable, falling back to ElevenLabs TTS:', createError);
+
+      // 2) Fallback: ElevenLabs TTS (áudio somente)
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+        body: { text, voice: 'Sarah', model: 'eleven_turbo_v2_5' },
+      });
+
+      if (ttsError) {
+        console.error('ElevenLabs TTS error:', ttsError);
+        throw new Error('Falha ao gerar áudio');
+      }
+
+      setIsGeneratingVideo(false);
+
+      if (ttsData?.audioContent) {
+        const audio = new Audio(`data:audio/mpeg;base64,${ttsData.audioContent}`);
+        audio.onended = () => setIsSpeaking(false);
+        await audio.play();
+        toast({ title: 'Modo áudio', description: 'Avatar indisponível. Reproduzindo áudio.' });
         return;
       }
 
-      const streamId = createData.id;
-      console.log('D-ID talk created:', streamId);
+      throw new Error('Resposta de áudio inválida');
 
-      // Step 3: Poll for video status
-      const checkStatus = async () => {
-        const { data: statusData, error: statusError } = await supabase.functions.invoke('did-avatar', {
-          body: {
-            action: 'status',
-            streamId,
-          },
-        });
-
-        if (statusError) {
-          console.error('D-ID status error:', statusError);
-          throw statusError;
-        }
-
-        console.log('D-ID status:', statusData.status);
-
-        if (statusData.status === 'done') {
-          setVideoUrl(statusData.result_url);
-          setIsGeneratingVideo(false);
-          
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
-        } else if (statusData.status === 'error' || statusData.status === 'failed') {
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
-          
-          setIsGeneratingVideo(false);
-          
-          // Fallback to audio
-          if (ttsData.audioContent) {
-            const audio = new Audio(`data:audio/mpeg;base64,${ttsData.audioContent}`);
-            audio.onended = () => setIsSpeaking(false);
-            await audio.play();
-            
-            toast({
-              title: "Modo áudio",
-              description: "Erro ao gerar vídeo. Reproduzindo áudio.",
-            });
-          }
-        }
-      };
-
-      // Start polling
-      pollIntervalRef.current = window.setInterval(checkStatus, 3000);
-      
     } catch (error) {
       console.error('Error in speakText:', error);
-      setIsSpeaking(false);
       setIsGeneratingVideo(false);
-      
-      // Try browser speech synthesis as last resort
+
+      // 3) Último recurso: TTS do navegador
       try {
         console.log('Attempting browser TTS as final fallback');
-        
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
-        
-        // Get male voice if available
         const voices = window.speechSynthesis.getVoices();
-        const maleVoice = voices.find(v => 
-          v.lang.startsWith('en') && 
-          (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Google US English'))
-        );
-        
-        if (maleVoice) {
-          utterance.voice = maleVoice;
-        }
-        
+        const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Google US English')));
+        if (maleVoice) utterance.voice = maleVoice;
         utterance.onend = () => setIsSpeaking(false);
         utterance.onerror = () => setIsSpeaking(false);
-        
         window.speechSynthesis.speak(utterance);
-        
-        toast({
-          title: "Modo áudio básico",
-          description: "Usando síntese de voz do navegador.",
-        });
-        return;
+        toast({ title: 'Modo áudio básico', description: 'Usando síntese de voz do navegador.' });
       } catch (fallbackError) {
         console.error('Browser TTS also failed:', fallbackError);
+        setIsSpeaking(false);
+        toast({ title: 'Erro de áudio', description: 'Não foi possível gerar resposta. Tente novamente.', variant: 'destructive' });
       }
-      
-      toast({
-        title: "Erro de áudio",
-        description: "Não foi possível gerar resposta. Tente novamente.",
-        variant: "destructive",
-      });
     }
   };
-
+      
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
