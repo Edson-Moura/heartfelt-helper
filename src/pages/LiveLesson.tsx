@@ -8,6 +8,7 @@ import { DIDAvatar } from '@/components/DIDAvatar';
 import { Mic, MicOff, ArrowLeft, Activity } from 'lucide-react';
 import { cacheService } from '@/services/CacheService';
 import { healthCheckService } from '@/services/HealthCheckService';
+import { resourcePreloader } from '@/services/ResourcePreloader';
 import { logger } from '@/lib/logger';
 
 export default function LiveLesson() {
@@ -21,6 +22,7 @@ export default function LiveLesson() {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [cacheStats, setCacheStats] = useState(cacheService.getStats());
+  const [preloadStats, setPreloadStats] = useState(resourcePreloader.getStats());
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -30,15 +32,20 @@ export default function LiveLesson() {
     // Start with greeting
     handleGreeting();
     
+    // Inicia ResourcePreloader
+    resourcePreloader.start();
+    
     // Cleanup cache periodically
     const cleanupInterval = setInterval(() => {
       cacheService.cleanup();
       setCacheStats(cacheService.getStats());
+      setPreloadStats(resourcePreloader.getStats());
     }, 30 * 60 * 1000); // 30 minutos
     
     return () => {
       clearInterval(cleanupInterval);
       healthCheckService.stopPeriodicChecks();
+      resourcePreloader.stop();
     };
   }, []);
 
@@ -536,28 +543,44 @@ export default function LiveLesson() {
               )}
             </Button>
 
-            {/* Cache Stats Badge */}
+            {/* System Stats */}
             <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-3">
                 <Activity className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">System Status</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Cache Hit Rate:</span>
-                  <span className="ml-1 font-semibold text-primary">{cacheStats.hitRate}</span>
+              
+              {/* Cache Stats */}
+              <div className="mb-3 pb-3 border-b border-primary/10">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Cache</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Hit Rate:</span>
+                    <span className="ml-1 font-semibold text-primary">{cacheStats.hitRate}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Saved:</span>
+                    <span className="ml-1 font-semibold text-green-600">${cacheStats.savedCost.toFixed(2)}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Saved:</span>
-                  <span className="ml-1 font-semibold text-green-600">${cacheStats.savedCost.toFixed(2)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Hits:</span>
-                  <span className="ml-1 font-semibold">{cacheStats.hits}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Cached:</span>
-                  <span className="ml-1 font-semibold">{cacheStats.size}</span>
+              </div>
+
+              {/* Preload Stats */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Preload</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Preloaded:</span>
+                    <span className="ml-1 font-semibold text-primary">{preloadStats.totalPreloaded}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Success:</span>
+                    <span className="ml-1 font-semibold text-green-600">
+                      {preloadStats.totalPreloaded > 0 
+                        ? Math.round((preloadStats.successCount / preloadStats.totalPreloaded) * 100) 
+                        : 0}%
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
