@@ -222,8 +222,9 @@ export default function LiveLesson() {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-chat`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           message: userText,
