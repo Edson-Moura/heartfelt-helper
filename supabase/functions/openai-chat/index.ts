@@ -17,7 +17,7 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    const { message, conversationHistory = [] } = await req.json();
+    const { message, conversationHistory = [], stream = false } = await req.json();
 
     const systemPrompt = `You are Alex, a friendly English tutor. You help students practice English conversation.
 - Keep responses short and natural (1-2 sentences)
@@ -42,7 +42,8 @@ serve(async (req) => {
         model: 'gpt-4o-mini',
         messages,
         temperature: 0.8,
-        max_tokens: 150
+        max_tokens: 150,
+        stream: stream
       }),
     });
 
@@ -52,6 +53,19 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
+    // If streaming requested, return the stream directly
+    if (stream) {
+      return new Response(response.body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
+    // Non-streaming mode (backward compatible)
     const data = await response.json();
     const reply = data.choices[0].message.content;
 

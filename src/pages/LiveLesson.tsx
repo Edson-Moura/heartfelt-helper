@@ -145,21 +145,8 @@ export default function LiveLesson() {
       const newHistory = [...conversationHistory, { role: 'user', content: userText }];
       setConversationHistory(newHistory);
 
-      // Get AI response
-      const { data: chatData, error: chatError } = await supabase.functions.invoke('openai-chat', {
-        body: {
-          message: userText,
-          conversationHistory: newHistory
-        },
-      });
-
-      if (chatError) throw chatError;
-
-      const aiReply = chatData.reply;
-      setConversationHistory([...newHistory, { role: 'assistant', content: aiReply }]);
-
-      // Speak the response
-      await speakText(aiReply);
+      // Get AI response with streaming
+      await processStreamingResponse(userText, newHistory);
 
     } catch (error) {
       console.error('Error processing audio:', error);
@@ -170,6 +157,86 @@ export default function LiveLesson() {
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const processStreamingResponse = async (userText: string, history: Array<{role: string, content: string}>) => {
+    try {
+      const SUPABASE_URL = 'https://yttjiuxjuanyzszlrdwj.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dGppdXhqdWFueXpzemxyZHdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjMzNDQsImV4cCI6MjA3MTg5OTM0NH0.-bGqgv1WY54Yaeit8TVk6HAfit1M3iLvDYy2IzcVKwU';
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userText,
+          conversationHistory: history,
+          stream: true
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to start streaming');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+      let avatarGenerationStarted = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (!line.trim() || line.startsWith(':')) continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+
+            if (content) {
+              accumulatedText += content;
+              
+              // Update conversation with accumulated text
+              setConversationHistory([...history, { role: 'assistant', content: accumulatedText }]);
+
+              // Start avatar generation after ~20 words (reduces perceived latency)
+              const wordCount = accumulatedText.split(' ').length;
+              if (!avatarGenerationStarted && wordCount >= 20) {
+                avatarGenerationStarted = true;
+                console.log('Starting early avatar generation with partial text:', accumulatedText);
+                speakText(accumulatedText);
+              }
+            }
+          } catch (e) {
+            // Skip invalid JSON chunks
+          }
+        }
+      }
+
+      // If we haven't started avatar generation yet (short response), do it now
+      if (!avatarGenerationStarted && accumulatedText) {
+        console.log('Starting avatar generation with complete text:', accumulatedText);
+        await speakText(accumulatedText);
+      }
+
+      // Final update with complete text
+      setConversationHistory([...history, { role: 'assistant', content: accumulatedText }]);
+
+    } catch (error) {
+      console.error('Error in streaming response:', error);
+      throw error;
     }
   };
 
