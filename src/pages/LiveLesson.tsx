@@ -8,6 +8,7 @@ import { DIDAvatar } from '@/components/DIDAvatar';
 import { Mic, MicOff, ArrowLeft, Activity } from 'lucide-react';
 import { cacheService } from '@/services/CacheService';
 import { healthCheckService } from '@/services/HealthCheckService';
+import { logger } from '@/lib/logger';
 
 export default function LiveLesson() {
   const navigate = useNavigate();
@@ -43,11 +44,14 @@ export default function LiveLesson() {
 
   const handleGreeting = async () => {
     try {
+      logger.info('LiveLesson: Greeting started', undefined, 'LiveLesson');
       const greeting = "Hello! I'm Alex, your English tutor. What would you like to talk about today?";
       setConversationHistory([{ role: 'assistant', content: greeting }]);
       await speakText(greeting);
     } catch (error) {
-      console.error('Error with greeting:', error);
+      logger.error('LiveLesson: Greeting failed', { 
+        error: error instanceof Error ? error.message : 'Unknown' 
+      }, 'LiveLesson');
     }
   };
 
@@ -77,7 +81,10 @@ export default function LiveLesson() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-        console.log('Audio blob size:', audioBlob.size, 'type:', audioBlob.type);
+        logger.debug('Audio recording stopped', { 
+          blobSize: audioBlob.size,
+          blobType: audioBlob.type 
+        }, 'LiveLesson');
         
         if (audioBlob.size < 1000) {
           toast({
@@ -101,7 +108,9 @@ export default function LiveLesson() {
         description: "Speak now...",
       });
     } catch (error) {
-      console.error('Error starting recording:', error);
+      logger.error('Recording start failed', { 
+        error: error instanceof Error ? error.message : 'Unknown' 
+      }, 'LiveLesson');
       toast({
         title: "Error",
         description: "Could not access microphone",
@@ -118,10 +127,13 @@ export default function LiveLesson() {
   };
 
   const processAudio = async (audioBlob: Blob) => {
+    const startTime = Date.now();
     setIsProcessing(true);
     
     try {
-      console.log('Processing audio blob:', audioBlob.size, 'bytes');
+      logger.info('Audio processing started', { 
+        blobSize: audioBlob.size 
+      }, 'LiveLesson');
       
       // Convert blob to base64
       const reader = new FileReader();
@@ -134,18 +146,29 @@ export default function LiveLesson() {
         reader.readAsDataURL(audioBlob);
       });
 
-      console.log('Converted to base64, length:', base64Audio.length);
+      logger.debug('Audio converted to base64', { 
+        base64Length: base64Audio.length 
+      }, 'LiveLesson');
 
       // Speech to Text
+      const sttStart = Date.now();
       const { data: sttData, error: sttError } = await supabase.functions.invoke('deepgram-stt', {
         body: { audio: base64Audio },
       });
 
-      console.log('STT response:', sttData, sttError);
+      if (sttError) {
+        logger.error('STT failed', { error: sttError.message }, 'LiveLesson');
+        healthCheckService.reportFailure('deepgram', sttError.message);
+        throw sttError;
+      }
 
-      if (sttError) throw sttError;
-
+      const sttDuration = Date.now() - sttStart;
       const userText = sttData.transcript;
+      logger.info('STT completed', { 
+        duration: sttDuration,
+        textLength: userText?.length || 0 
+      }, 'LiveLesson');
+      healthCheckService.reportSuccess('deepgram', sttDuration);
       if (!userText || userText.trim() === '') {
         toast({
           title: "Não entendi",
@@ -162,8 +185,16 @@ export default function LiveLesson() {
       // Get AI response with streaming
       await processStreamingResponse(userText, newHistory);
 
+      const totalDuration = Date.now() - startTime;
+      logger.info('Audio processing completed', { 
+        totalDuration,
+        cacheStats: cacheService.getStats() 
+      }, 'LiveLesson');
+
     } catch (error) {
-      console.error('Error processing audio:', error);
+      logger.error('Audio processing failed', { 
+        error: error instanceof Error ? error.message : 'Unknown' 
+      }, 'LiveLesson');
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to process audio",
@@ -175,7 +206,9 @@ export default function LiveLesson() {
   };
 
   const processStreamingResponse = async (userText: string, history: Array<{role: string, content: string}>) => {
+    const aiStart = Date.now();
     try {
+      logger.info('AI streaming started', undefined, 'LiveLesson');
       const SUPABASE_URL = 'https://yttjiuxjuanyzszlrdwj.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dGppdXhqdWFueXpzemxyZHdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjMzNDQsImV4cCI6MjA3MTg5OTM0NH0.-bGqgv1WY54Yaeit8TVk6HAfit1M3iLvDYy2IzcVKwU';
 
@@ -229,7 +262,10 @@ export default function LiveLesson() {
               const wordCount = accumulatedText.split(' ').length;
               if (!avatarGenerationStarted && wordCount >= 20) {
                 avatarGenerationStarted = true;
-                console.log('Starting early avatar generation with partial text:', accumulatedText);
+                logger.info('AI: Early avatar generation triggered', { 
+                  wordCount,
+                  textLength: accumulatedText.length 
+                }, 'LiveLesson');
                 speakText(accumulatedText);
               }
             }
@@ -241,30 +277,43 @@ export default function LiveLesson() {
 
       // If we haven't started avatar generation yet (short response), do it now
       if (!avatarGenerationStarted && accumulatedText) {
-        console.log('Starting avatar generation with complete text:', accumulatedText);
+        logger.debug('AI: Avatar generation with complete text', { 
+          textLength: accumulatedText.length 
+        }, 'LiveLesson');
         await speakText(accumulatedText);
       }
 
       // Final update with complete text
       setConversationHistory([...history, { role: 'assistant', content: accumulatedText }]);
 
+      const aiDuration = Date.now() - aiStart;
+      logger.info('AI streaming completed', { 
+        duration: aiDuration,
+        responseLength: accumulatedText.length 
+      }, 'LiveLesson');
+      healthCheckService.reportSuccess('openai', aiDuration);
+
     } catch (error) {
-      console.error('Error in streaming response:', error);
+      logger.error('AI streaming failed', { 
+        error: error instanceof Error ? error.message : 'Unknown' 
+      }, 'LiveLesson');
+      healthCheckService.reportFailure('openai', error instanceof Error ? error.message : 'Unknown');
       throw error;
     }
   };
 
   const speakText = async (text: string) => {
+    const startTime = Date.now();
     setIsSpeaking(true);
     setIsGeneratingVideo(true);
 
     try {
-      console.log('Starting speakText with:', text);
+      logger.info('Avatar: Generation started', { textLength: text.length }, 'LiveLesson');
 
       // 🎯 CACHE CHECK: Verifica se temos resposta cacheada
       const cached = cacheService.get(text);
       if (cached) {
-        console.log('✅ Using cached response!');
+        logger.info('Avatar: Cache hit', undefined, 'LiveLesson');
         
         if (cached.videoUrl) {
           setVideoUrl(cached.videoUrl);
@@ -284,7 +333,6 @@ export default function LiveLesson() {
       }
 
       // 1) Tentar gerar o vídeo do avatar D-ID primeiro
-      const startTime = Date.now();
       const { data: createData, error: createError } = await supabase.functions.invoke('did-avatar', {
         body: {
           text,
@@ -294,7 +342,7 @@ export default function LiveLesson() {
 
       if (!createError && createData?.id) {
         const streamId = createData.id;
-        console.log('D-ID talk created:', streamId);
+        logger.debug('D-ID: Talk created', { streamId }, 'LiveLesson');
 
         const checkStatus = async () => {
           const { data: statusData, error: statusError } = await supabase.functions.invoke('did-avatar', {
@@ -302,11 +350,11 @@ export default function LiveLesson() {
           });
 
           if (statusError) {
-            console.error('D-ID status error:', statusError);
+            logger.error('D-ID: Status check failed', { error: statusError.message }, 'LiveLesson');
             throw statusError;
           }
 
-          console.log('D-ID status:', statusData.status);
+          logger.debug('D-ID: Status update', { status: statusData.status }, 'LiveLesson');
 
           if (statusData.status === 'done') {
             const totalLatency = Date.now() - startTime;
@@ -314,6 +362,10 @@ export default function LiveLesson() {
             setIsGeneratingVideo(false);
             
             // ✅ Reporta sucesso e cacheia
+            logger.info('D-ID: Generation completed', { 
+              latency: totalLatency,
+              videoUrl: statusData.result_url.substring(0, 50) + '...' 
+            }, 'LiveLesson');
             healthCheckService.reportSuccess('did', totalLatency);
             cacheService.set(text, statusData.result_url);
             setCacheStats(cacheService.getStats());
@@ -329,6 +381,7 @@ export default function LiveLesson() {
             }
             
             // ❌ Reporta falha
+            logger.warn('D-ID: Generation failed', { status: statusData.status }, 'LiveLesson');
             healthCheckService.reportFailure('did', 'Generation failed');
             throw new Error('D-ID generation failed');
           }
@@ -339,18 +392,21 @@ export default function LiveLesson() {
         return; // Já iniciamos o fluxo do avatar
       }
 
-      console.warn('D-ID unavailable, falling back to ElevenLabs TTS:', createError);
+      logger.warn('D-ID: Unavailable, using TTS fallback', { 
+        error: createError?.message 
+      }, 'LiveLesson');
       
       // ❌ Reporta falha do D-ID
       healthCheckService.reportFailure('did', createError?.message || 'Unknown error');
 
       // 2) Fallback: ElevenLabs TTS (áudio somente)
+      const ttsStart = Date.now();
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
         body: { text, voice: 'Sarah', model: 'eleven_turbo_v2_5' },
       });
 
       if (ttsError) {
-        console.error('ElevenLabs TTS error:', ttsError);
+        logger.error('TTS: ElevenLabs failed', { error: ttsError.message }, 'LiveLesson');
         healthCheckService.reportFailure('elevenlabs', ttsError?.message || 'Unknown error');
         toast({ title: 'ElevenLabs indisponível', description: 'Verifique a API key do ElevenLabs (401). Usando fallback.', variant: 'destructive' });
         throw new Error('Falha ao gerar áudio');
@@ -365,8 +421,11 @@ export default function LiveLesson() {
         await audio.play();
         
         // ✅ Reporta sucesso e cacheia
-        const totalLatency = Date.now() - startTime;
-        healthCheckService.reportSuccess('elevenlabs', totalLatency);
+        const ttsDuration = Date.now() - ttsStart;
+        logger.info('TTS: ElevenLabs completed', { 
+          duration: ttsDuration 
+        }, 'LiveLesson');
+        healthCheckService.reportSuccess('elevenlabs', ttsDuration);
         cacheService.set(text, undefined, audioUrl);
         setCacheStats(cacheService.getStats());
         
@@ -377,12 +436,14 @@ export default function LiveLesson() {
       throw new Error('Resposta de áudio inválida');
 
     } catch (error) {
-      console.error('Error in speakText:', error);
+      logger.error('Avatar: All methods failed, using browser TTS', { 
+        error: error instanceof Error ? error.message : 'Unknown' 
+      }, 'LiveLesson');
       setIsGeneratingVideo(false);
 
       // 3) Último recurso: TTS do navegador
       try {
-        console.log('Attempting browser TTS as final fallback');
+        logger.debug('TTS: Browser fallback', undefined, 'LiveLesson');
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
         utterance.rate = 0.9;
@@ -395,7 +456,9 @@ export default function LiveLesson() {
         window.speechSynthesis.speak(utterance);
         toast({ title: 'Modo áudio básico', description: 'Usando síntese de voz do navegador.' });
       } catch (fallbackError) {
-        console.error('Browser TTS also failed:', fallbackError);
+        logger.error('TTS: Browser fallback failed', { 
+          error: fallbackError instanceof Error ? fallbackError.message : 'Unknown' 
+        }, 'LiveLesson');
         setIsSpeaking(false);
         toast({ title: 'Erro de áudio', description: 'Não foi possível gerar resposta. Tente novamente.', variant: 'destructive' });
       }
