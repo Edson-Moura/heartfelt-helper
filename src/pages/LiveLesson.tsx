@@ -5,7 +5,9 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { DIDAvatar } from '@/components/DIDAvatar';
-import { Mic, MicOff, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, ArrowLeft, Activity } from 'lucide-react';
+import { cacheService } from '@/services/CacheService';
+import { healthCheckService } from '@/services/HealthCheckService';
 
 export default function LiveLesson() {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ export default function LiveLesson() {
   const [transcript, setTranscript] = useState('');
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [cacheStats, setCacheStats] = useState(cacheService.getStats());
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -25,6 +28,17 @@ export default function LiveLesson() {
   useEffect(() => {
     // Start with greeting
     handleGreeting();
+    
+    // Cleanup cache periodically
+    const cleanupInterval = setInterval(() => {
+      cacheService.cleanup();
+      setCacheStats(cacheService.getStats());
+    }, 30 * 60 * 1000); // 30 minutos
+    
+    return () => {
+      clearInterval(cleanupInterval);
+      healthCheckService.stopPeriodicChecks();
+    };
   }, []);
 
   const handleGreeting = async () => {
@@ -247,7 +261,30 @@ export default function LiveLesson() {
     try {
       console.log('Starting speakText with:', text);
 
+      // 🎯 CACHE CHECK: Verifica se temos resposta cacheada
+      const cached = cacheService.get(text);
+      if (cached) {
+        console.log('✅ Using cached response!');
+        
+        if (cached.videoUrl) {
+          setVideoUrl(cached.videoUrl);
+          setIsGeneratingVideo(false);
+          toast({
+            title: '⚡ Resposta instantânea',
+            description: 'Usando resposta cacheada',
+          });
+          return;
+        } else if (cached.audioUrl) {
+          const audio = new Audio(cached.audioUrl);
+          audio.onended = () => setIsSpeaking(false);
+          await audio.play();
+          setIsGeneratingVideo(false);
+          return;
+        }
+      }
+
       // 1) Tentar gerar o vídeo do avatar D-ID primeiro
+      const startTime = Date.now();
       const { data: createData, error: createError } = await supabase.functions.invoke('did-avatar', {
         body: {
           text,
@@ -272,8 +309,15 @@ export default function LiveLesson() {
           console.log('D-ID status:', statusData.status);
 
           if (statusData.status === 'done') {
+            const totalLatency = Date.now() - startTime;
             setVideoUrl(statusData.result_url);
             setIsGeneratingVideo(false);
+            
+            // ✅ Reporta sucesso e cacheia
+            healthCheckService.reportSuccess('did', totalLatency);
+            cacheService.set(text, statusData.result_url);
+            setCacheStats(cacheService.getStats());
+            
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
@@ -283,6 +327,9 @@ export default function LiveLesson() {
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
             }
+            
+            // ❌ Reporta falha
+            healthCheckService.reportFailure('did', 'Generation failed');
             throw new Error('D-ID generation failed');
           }
         };
@@ -293,6 +340,9 @@ export default function LiveLesson() {
       }
 
       console.warn('D-ID unavailable, falling back to ElevenLabs TTS:', createError);
+      
+      // ❌ Reporta falha do D-ID
+      healthCheckService.reportFailure('did', createError?.message || 'Unknown error');
 
       // 2) Fallback: ElevenLabs TTS (áudio somente)
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
@@ -301,6 +351,7 @@ export default function LiveLesson() {
 
       if (ttsError) {
         console.error('ElevenLabs TTS error:', ttsError);
+        healthCheckService.reportFailure('elevenlabs', ttsError?.message || 'Unknown error');
         toast({ title: 'ElevenLabs indisponível', description: 'Verifique a API key do ElevenLabs (401). Usando fallback.', variant: 'destructive' });
         throw new Error('Falha ao gerar áudio');
       }
@@ -308,9 +359,17 @@ export default function LiveLesson() {
       setIsGeneratingVideo(false);
 
       if (ttsData?.audioContent) {
-        const audio = new Audio(`data:audio/mpeg;base64,${ttsData.audioContent}`);
+        const audioUrl = `data:audio/mpeg;base64,${ttsData.audioContent}`;
+        const audio = new Audio(audioUrl);
         audio.onended = () => setIsSpeaking(false);
         await audio.play();
+        
+        // ✅ Reporta sucesso e cacheia
+        const totalLatency = Date.now() - startTime;
+        healthCheckService.reportSuccess('elevenlabs', totalLatency);
+        cacheService.set(text, undefined, audioUrl);
+        setCacheStats(cacheService.getStats());
+        
         toast({ title: 'Modo áudio', description: 'Avatar indisponível. Reproduzindo áudio.' });
         return;
       }
@@ -408,11 +467,37 @@ export default function LiveLesson() {
                 </>
               ) : (
                 <>
-                  <Mic className="mr-2 h-5 w-5" />
+              <Mic className="mr-2 h-5 w-5" />
                   {isProcessing ? 'Processing...' : isSpeaking ? 'Alex is speaking...' : 'Start Recording'}
                 </>
               )}
             </Button>
+
+            {/* Cache Stats Badge */}
+            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">System Status</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Cache Hit Rate:</span>
+                  <span className="ml-1 font-semibold text-primary">{cacheStats.hitRate}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Saved:</span>
+                  <span className="ml-1 font-semibold text-green-600">${cacheStats.savedCost.toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Hits:</span>
+                  <span className="ml-1 font-semibold">{cacheStats.hits}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Cached:</span>
+                  <span className="ml-1 font-semibold">{cacheStats.size}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </Card>
       </div>
