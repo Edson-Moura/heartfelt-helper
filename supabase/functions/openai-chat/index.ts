@@ -12,9 +12,9 @@ serve(async (req) => {
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+    const NVIDIA_API_KEY = Deno.env.get('NVIDIA_API_KEY');
+    if (!NVIDIA_API_KEY) {
+      throw new Error('NVIDIA_API_KEY not configured');
     }
 
     const { message, conversationHistory = [], stream = false } = await req.json();
@@ -32,14 +32,14 @@ serve(async (req) => {
       { role: 'user', content: message }
     ];
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${NVIDIA_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'meta/llama-3.1-8b-instruct',
         messages,
         temperature: 0.8,
         max_tokens: 150,
@@ -49,8 +49,8 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('OpenAI API error:', error);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error('NVIDIA API error:', error);
+      throw new Error(`NVIDIA API error: ${response.status}`);
     }
 
     // If streaming requested, return the stream directly
@@ -75,7 +75,7 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('Error in openai-chat:', error);
+    console.error('Error in nvidia-chat:', error);
     return new Response(
       JSON.stringify({ error: error?.message || 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
