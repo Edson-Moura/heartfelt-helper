@@ -1,1 +1,46 @@
 project_id = "yttjiuxjuanyzszlrdwj"
+
+[functions.openai-chat]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.did-avatar]
+verify_jwt = false
+
+[functions.deepgram-stt]
+verify_jwt = false
+
+[functions.nvidia-tts]
+verify_jwt = false
+
+[functions.nvidia-chat]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = true
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
+[functions.register-push-device]
+verify_jwt = true
+
+[functions.send-contact-email]
+verify_jwt = false
+
+[functions.send-ebook]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.unsubscribe-ebook]
+verify_jwt = false
+
+[functions.upload-ebook]
+verify_jwt = true
