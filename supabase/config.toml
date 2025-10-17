@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.upload-ebook]
 verify_jwt = true
+
+[functions.heygen-avatar]
+verify_jwt = true
+
+[functions.azure-tts]
+verify_jwt = true

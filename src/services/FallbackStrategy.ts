@@ -38,7 +38,7 @@ const FALLBACK_MATRIX: Record<ProviderType, ProviderConfig[]> = {
       cost: 0.02 // $0.02 por 15s de vídeo
     },
     { 
-      provider: 'elevenlabs', // Fallback: apenas áudio
+      provider: 'elevenlabs', // Fallback: apenas áudio com ElevenLabs
       priority: 2, 
       timeout: 5000, 
       quality: 'medium',
