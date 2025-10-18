@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
 import { metricsCollector } from './MetricsCollector';
 
 type ProviderType = 'avatar' | 'tts' | 'stt' | 'ai';
-type Provider = 'did' | 'elevenlabs' | 'deepgram' | 'openai' | 'nvidia' | 'browser';
+type Provider = 'did' | 'heygen' | 'elevenlabs' | 'nvidia' | 'azure' | 'deepgram' | 'openai' | 'browser';
 
 interface ProviderConfig {
   provider: Provider;
@@ -169,7 +169,7 @@ class FallbackStrategyService {
   /**
    * Executa uma função com estratégia de fallback automática
    */
-  async executeWithFallback<T>(
+  async executeWithFallback<T = any>(
     type: ProviderType,
     executors: Map<Provider, () => Promise<T>>,
     options?: {

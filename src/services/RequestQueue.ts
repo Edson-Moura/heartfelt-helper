@@ -60,9 +60,50 @@ class RequestQueueService {
   }
 
   /**
-   * Adiciona requisição à fila
+   * Adiciona requisição à fila (função executável)
    */
   async enqueue<T = any>(
+    fn: () => Promise<T>,
+    options: {
+      priority?: Priority;
+      timeout?: number;
+      maxRetries?: number;
+    } = {}
+  ): Promise<T> {
+    const {
+      priority = 'medium',
+      timeout = this.config.defaultTimeout,
+      maxRetries = 2,
+    } = options;
+
+    return new Promise<T>((resolve, reject) => {
+      const request: QueuedRequest<T> = {
+        id: this.generateRequestId(),
+        type: 'ai', // Default type quando usado com função
+        priority,
+        payload: fn,
+        timestamp: Date.now(),
+        timeout,
+        resolve,
+        reject,
+        retries: 0,
+        maxRetries,
+      };
+
+      this.addToQueue(request);
+
+      logger.debug('Request enqueued', {
+        id: request.id,
+        priority,
+        queueSize: this.queue.length,
+      }, 'RequestQueue');
+    });
+  }
+
+  /**
+   * Adiciona requisição à fila (modo tradicional com tipo e payload)
+   */
+  async enqueueTyped<T = any>(
     type: RequestType,
     payload: any,
     options: {
@@ -98,7 +139,7 @@ class RequestQueueService {
         this.addToQueue(request);
       }
 
-      logger.debug('Request enqueued', {
+      logger.debug('Request enqueued (typed)', {
         id: request.id,
         type,
         priority,
@@ -219,8 +260,14 @@ class RequestQueueService {
         throw new Error(`Request timeout after ${request.timeout}ms`);
       }
 
-      // Executa processador específico do tipo
-      const result = await this.processRequestByType(request);
+      // Se payload é uma função, executa diretamente
+      let result;
+      if (typeof request.payload === 'function') {
+        result = await request.payload();
+      } else {
+        // Caso contrário, usa processador do tipo
+        result = await this.processRequestByType(request);
+      }
 
       // Registra métrica de sucesso
       metricsCollector.trackPerformance({

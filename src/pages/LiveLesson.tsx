@@ -5,11 +5,15 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { DIDAvatar } from '@/components/DIDAvatar';
-import { Mic, MicOff, ArrowLeft, Activity } from 'lucide-react';
+import { Mic, MicOff, ArrowLeft, Activity, Gauge } from 'lucide-react';
 import { cacheService } from '@/services/CacheService';
 import { healthCheckService } from '@/services/HealthCheckService';
 import { resourcePreloader } from '@/services/ResourcePreloader';
+import { fallbackStrategy } from '@/services/FallbackStrategy';
+import { requestQueue } from '@/services/RequestQueue';
+import { useAdaptiveQuality } from '@/hooks/useAdaptiveQuality';
 import { logger } from '@/lib/logger';
+import { Badge } from '@/components/ui/badge';
 
 export default function LiveLesson() {
   const navigate = useNavigate();
@@ -23,6 +27,15 @@ export default function LiveLesson() {
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [cacheStats, setCacheStats] = useState(cacheService.getStats());
   const [preloadStats, setPreloadStats] = useState(resourcePreloader.getStats());
+  
+  // 🎯 Adaptive Quality
+  const { 
+    quality, 
+    settings, 
+    recordLatency, 
+    getRecommendation,
+    networkInfo 
+  } = useAdaptiveQuality();
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -316,14 +329,18 @@ export default function LiveLesson() {
     setIsGeneratingVideo(true);
 
     try {
-      logger.info('Avatar: Generation started', { textLength: text.length }, 'LiveLesson');
+      logger.info('Avatar: Generation started', { 
+        textLength: text.length,
+        quality: quality,
+        useVideo: settings.useVideo 
+      }, 'LiveLesson');
 
       // 🎯 CACHE CHECK: Verifica se temos resposta cacheada
       const cached = cacheService.get(text);
       if (cached) {
         logger.info('Avatar: Cache hit', undefined, 'LiveLesson');
         
-        if (cached.videoUrl) {
+        if (cached.videoUrl && settings.useVideo) {
           setVideoUrl(cached.videoUrl);
           setIsGeneratingVideo(false);
           toast({
@@ -340,136 +357,170 @@ export default function LiveLesson() {
         }
       }
 
-      // 1) Tentar gerar o vídeo do avatar D-ID primeiro
-      const { data: createData, error: createError } = await supabase.functions.invoke('did-avatar', {
-        body: {
-          text,
-          action: 'create',
+      // 🎯 FALLBACK STRATEGY: Usa fallback inteligente com FallbackStrategy
+      const result = await requestQueue.enqueue<any>(
+        async () => {
+          return await fallbackStrategy.executeWithFallback<string>(
+            'avatar',
+            new Map([
+              ['did', async () => {
+                if (!settings.useVideo) throw new Error('Video disabled by quality settings');
+                
+                const { data: createData, error: createError } = await supabase.functions.invoke('did-avatar', {
+                  body: { text, action: 'create' }
+                });
+                
+                if (createError || !createData?.id) throw createError || new Error('No stream ID');
+                
+                const streamId = createData.id;
+                logger.debug('D-ID: Talk created', { streamId }, 'LiveLesson');
+
+                // Poll status
+                return new Promise((resolve, reject) => {
+                  const checkStatus = async () => {
+                    const { data: statusData, error: statusError } = await supabase.functions.invoke('did-avatar', {
+                      body: { action: 'status', streamId }
+                    });
+
+                    if (statusError) {
+                      clearInterval(pollIntervalRef.current!);
+                      reject(statusError);
+                      return;
+                    }
+
+                    if (statusData.status === 'done') {
+                      clearInterval(pollIntervalRef.current!);
+                      pollIntervalRef.current = null;
+                      resolve(statusData.result_url);
+                    } else if (statusData.status === 'error' || statusData.status === 'failed') {
+                      clearInterval(pollIntervalRef.current!);
+                      pollIntervalRef.current = null;
+                      reject(new Error('D-ID generation failed'));
+                    }
+                  };
+
+                  pollIntervalRef.current = window.setInterval(checkStatus, 2000);
+                  setTimeout(() => {
+                    if (pollIntervalRef.current) {
+                      clearInterval(pollIntervalRef.current);
+                      pollIntervalRef.current = null;
+                      reject(new Error('D-ID timeout'));
+                    }
+                  }, settings.maxLatencyMs);
+                });
+              }],
+              ['heygen', async () => {
+                if (!settings.useVideo) throw new Error('Video disabled by quality settings');
+                
+                const { data, error } = await supabase.functions.invoke('heygen-avatar', {
+                  body: { text }
+                });
+                
+                if (error) throw error;
+                if (!data?.videoUrl) throw new Error('No video URL');
+                return data.videoUrl;
+              }],
+              ['elevenlabs', async () => {
+                const modelToUse = settings.useHighQualityAudio ? 'eleven_turbo_v2_5' : 'eleven_turbo_v2';
+                
+                const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
+                  body: { text, voice: 'Sarah', model: modelToUse }
+                });
+                
+                if (error) throw error;
+                if (!data?.audioContent) throw new Error('No audio content');
+                return `data:audio/mpeg;base64,${data.audioContent}`;
+              }],
+              ['nvidia', async () => {
+                const { data, error } = await supabase.functions.invoke('nvidia-tts', {
+                  body: { text }
+                });
+                
+                if (error) throw error;
+                if (!data?.audioContent) throw new Error('No audio content');
+                return `data:audio/wav;base64,${data.audioContent}`;
+              }],
+              ['azure', async () => {
+                const { data, error } = await supabase.functions.invoke('azure-tts', {
+                  body: { text }
+                });
+                
+                if (error) throw error;
+                if (!data?.audioContent) throw new Error('No audio content');
+                return `data:audio/wav;base64,${data.audioContent}`;
+              }],
+              ['browser', async () => {
+                return new Promise((resolve) => {
+                  const utterance = new SpeechSynthesisUtterance(text);
+                  utterance.lang = 'en-US';
+                  utterance.rate = 0.9;
+                  utterance.pitch = 1.0;
+                  const voices = window.speechSynthesis.getVoices();
+                  const maleVoice = voices.find(v => v.lang.startsWith('en'));
+                  if (maleVoice) utterance.voice = maleVoice;
+                  utterance.onend = () => resolve('browser-tts');
+                  utterance.onerror = () => resolve('browser-tts');
+                  window.speechSynthesis.speak(utterance);
+                });
+              }]
+            ])
+          );
         },
-      });
+        { priority: 'high', timeout: settings.maxLatencyMs }
+      );
 
-      if (!createError && createData?.id) {
-        const streamId = createData.id;
-        logger.debug('D-ID: Talk created', { streamId }, 'LiveLesson');
+      const totalLatency = Date.now() - startTime;
+      recordLatency(totalLatency);
 
-        const checkStatus = async () => {
-          const { data: statusData, error: statusError } = await supabase.functions.invoke('did-avatar', {
-            body: { action: 'status', streamId },
-          });
-
-          if (statusError) {
-            logger.error('D-ID: Status check failed', { error: statusError.message }, 'LiveLesson');
-            throw statusError;
-          }
-
-          logger.debug('D-ID: Status update', { status: statusData.status }, 'LiveLesson');
-
-          if (statusData.status === 'done') {
-            const totalLatency = Date.now() - startTime;
-            setVideoUrl(statusData.result_url);
-            setIsGeneratingVideo(false);
-            
-            // ✅ Reporta sucesso e cacheia
-            logger.info('D-ID: Generation completed', { 
-              latency: totalLatency,
-              videoUrl: statusData.result_url.substring(0, 50) + '...' 
-            }, 'LiveLesson');
-            healthCheckService.reportSuccess('did', totalLatency);
-            cacheService.set(text, statusData.result_url);
-            setCacheStats(cacheService.getStats());
-            
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-          } else if (statusData.status === 'error' || statusData.status === 'failed') {
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-            
-            // ❌ Reporta falha
-            logger.warn('D-ID: Generation failed', { status: statusData.status }, 'LiveLesson');
-            healthCheckService.reportFailure('did', 'Generation failed');
-            throw new Error('D-ID generation failed');
-          }
-        };
-
-        // Start polling every 2s
-        pollIntervalRef.current = window.setInterval(checkStatus, 2000);
-        return; // Já iniciamos o fluxo do avatar
-      }
-
-      logger.warn('D-ID: Unavailable, using TTS fallback', { 
-        error: createError?.message 
+      logger.info('Avatar/TTS completed', {
+        provider: result.provider,
+        latency: result.latency,
+        fallbackUsed: result.fallbackUsed,
+        fallbackLevel: result.fallbackLevel,
+        quality: quality
       }, 'LiveLesson');
-      
-      // ❌ Reporta falha do D-ID
-      healthCheckService.reportFailure('did', createError?.message || 'Unknown error');
-
-      // 2) Fallback: ElevenLabs TTS (áudio somente)
-      const ttsStart = Date.now();
-      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-        body: { text, voice: 'Sarah', model: 'eleven_turbo_v2_5' },
-      });
-
-      if (ttsError) {
-        logger.error('TTS: ElevenLabs failed', { error: ttsError.message }, 'LiveLesson');
-        healthCheckService.reportFailure('elevenlabs', ttsError?.message || 'Unknown error');
-        toast({ title: 'ElevenLabs indisponível', description: 'Verifique a API key do ElevenLabs (401). Usando fallback.', variant: 'destructive' });
-        throw new Error('Falha ao gerar áudio');
-      }
 
       setIsGeneratingVideo(false);
 
-      if (ttsData?.audioContent) {
-        const audioUrl = `data:audio/mpeg;base64,${ttsData.audioContent}`;
-        const audio = new Audio(audioUrl);
+      // Processar resultado baseado no provider
+      if (result.provider === 'did' || result.provider === 'heygen') {
+        setVideoUrl(result.result as string);
+        cacheService.set(text, result.result as string);
+        toast({
+          title: '✅ Vídeo gerado',
+          description: `Provider: ${result.provider} ${result.fallbackUsed ? '(fallback)' : ''}`,
+        });
+      } else if (result.provider === 'browser') {
+        setIsSpeaking(false);
+        toast({
+          title: 'Modo áudio básico',
+          description: 'Usando síntese de voz do navegador',
+        });
+      } else {
+        // Audio providers (elevenlabs, nvidia, azure)
+        const audio = new Audio(result.result as string);
         audio.onended = () => setIsSpeaking(false);
         await audio.play();
-        
-        // ✅ Reporta sucesso e cacheia
-        const ttsDuration = Date.now() - ttsStart;
-        logger.info('TTS: ElevenLabs completed', { 
-          duration: ttsDuration 
-        }, 'LiveLesson');
-        healthCheckService.reportSuccess('elevenlabs', ttsDuration);
-        cacheService.set(text, undefined, audioUrl);
-        setCacheStats(cacheService.getStats());
-        
-        toast({ title: 'Modo áudio', description: 'Avatar indisponível. Reproduzindo áudio.' });
-        return;
+        cacheService.set(text, undefined, result.result as string);
+        toast({
+          title: '🎵 Áudio gerado',
+          description: `Provider: ${result.provider} ${result.fallbackUsed ? '(fallback)' : ''}`,
+        });
       }
 
-      throw new Error('Resposta de áudio inválida');
+      setCacheStats(cacheService.getStats());
 
     } catch (error) {
-      logger.error('Avatar: All methods failed, using browser TTS', { 
-        error: error instanceof Error ? error.message : 'Unknown' 
+      logger.error('Avatar/TTS: All methods failed', {
+        error: error instanceof Error ? error.message : 'Unknown'
       }, 'LiveLesson');
       setIsGeneratingVideo(false);
-
-      // 3) Último recurso: TTS do navegador
-      try {
-        logger.debug('TTS: Browser fallback', undefined, 'LiveLesson');
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        const voices = window.speechSynthesis.getVoices();
-        const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Google US English')));
-        if (maleVoice) utterance.voice = maleVoice;
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-        toast({ title: 'Modo áudio básico', description: 'Usando síntese de voz do navegador.' });
-      } catch (fallbackError) {
-        logger.error('TTS: Browser fallback failed', { 
-          error: fallbackError instanceof Error ? fallbackError.message : 'Unknown' 
-        }, 'LiveLesson');
-        setIsSpeaking(false);
-        toast({ title: 'Erro de áudio', description: 'Não foi possível gerar resposta. Tente novamente.', variant: 'destructive' });
-      }
+      setIsSpeaking(false);
+      toast({
+        title: 'Erro de geração',
+        description: 'Não foi possível gerar resposta. Tente novamente.',
+        variant: 'destructive'
+      });
     }
   };
       
@@ -567,7 +618,7 @@ export default function LiveLesson() {
               </div>
 
               {/* Preload Stats */}
-              <div>
+              <div className="mb-3 pb-3 border-b border-primary/10">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Preload</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
@@ -581,6 +632,29 @@ export default function LiveLesson() {
                         ? Math.round((preloadStats.successCount / preloadStats.totalPreloaded) * 100) 
                         : 0}%
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quality Monitor */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-muted-foreground">Adaptive Quality</p>
+                  <Badge 
+                    variant={quality === 'high' ? 'default' : quality === 'medium' ? 'secondary' : 'outline'}
+                    className="text-xs px-2 py-0.5"
+                  >
+                    {quality.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Video:</span>
+                    <span className="ml-1 font-semibold">{settings.useVideo ? 'ON' : 'OFF'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Network:</span>
+                    <span className="ml-1 font-semibold">{networkInfo.effectiveType || '4g'}</span>
                   </div>
                 </div>
               </div>
