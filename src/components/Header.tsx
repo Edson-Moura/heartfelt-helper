@@ -1,17 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Users } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Users, Menu } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Link } from "react-router-dom";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
 import whatsappIcon from "@/assets/whatsapp-icon.svg";
-// import fluentTalkLogo from "@/assets/fluenttalk-logo.png";
+import { useState } from "react";
 
 export const Header = () => {
   const { user, signOut, loading } = useAuth();
   const { profile } = useProfile();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -88,21 +90,133 @@ export const Header = () => {
         </nav>
 
         <div className="flex items-center gap-1 md:gap-2 lg:gap-3">
-          {/* Tablet Navigation */}
-          <nav className="hidden md:flex lg:hidden items-center gap-3">
-            {!user && (
-              <>
-                <Link to="/?scrollTo=features" className="text-xs text-muted-foreground hover:text-foreground transition-smooth">
-                  Funcionalidades
-                </Link>
-                <Link to="/pricing" className="text-xs text-muted-foreground hover:text-foreground transition-smooth">
-                  Preços
-                </Link>
-              </>
-            )}
-          </nav>
+          {/* Mobile/Tablet Menu */}
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild className="lg:hidden">
+              <Button variant="ghost" size="sm" className="px-2">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px] bg-background/95 backdrop-blur-lg">
+              <SheetHeader>
+                <SheetTitle className="text-left">
+                  <span className="bg-gradient-hero bg-clip-text text-transparent">MyEnglish</span>
+                  <span className="text-green-600">One</span>
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-4 mt-8">
+                {user ? (
+                  <>
+                    <Link 
+                      to="/dashboard" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Home className="h-5 w-5" />
+                      Dashboard
+                    </Link>
+                    <Link 
+                      to="/lessons" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <BookOpen className="h-5 w-5" />
+                      Lições
+                    </Link>
+                    <Link 
+                      to="/chat" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <MessageSquare className="h-5 w-5" />
+                      Chat IA
+                    </Link>
+                    <Link 
+                      to="/achievements" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <BarChart3 className="h-5 w-5" />
+                      Conquistas
+                    </Link>
+                    <Link 
+                      to="/quiz" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Trophy className="h-5 w-5" />
+                      Quiz
+                    </Link>
+                    <a 
+                      href="https://comunidade.myenglishone.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Users className="h-5 w-5" />
+                      Comunidade
+                    </a>
+                    <Link 
+                      to="/settings" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Settings className="h-5 w-5" />
+                      Configurações
+                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10 px-0 py-2"
+                      onClick={() => {
+                        handleSignOut();
+                        setMenuOpen(false);
+                      }}
+                      disabled={loading}
+                    >
+                      <LogOut className="mr-3 h-5 w-5" />
+                      Sair
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link 
+                      to="/?scrollTo=features" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Funcionalidades
+                    </Link>
+                    <Link 
+                      to="/pricing" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Preços
+                    </Link>
+                    <Link 
+                      to="/about" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Sobre
+                    </Link>
+                    <a 
+                      href="https://comunidade.myenglishone.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Comunidade
+                    </a>
+                  </>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
           
-          <Button 
+          <Button
             variant="ghost" 
             size="sm" 
             className="px-2 md:px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
