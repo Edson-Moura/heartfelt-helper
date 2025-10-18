@@ -5,6 +5,7 @@
 
 import { logger } from '@/lib/logger';
 import { metricsCollector } from './MetricsCollector';
+import { abuseDetector } from './AbuseDetector';
 
 type Provider = 'nvidia' | 'elevenlabs' | 'did' | 'deepgram' | 'openai';
 type PlanType = 'free' | 'premium' | 'enterprise';
@@ -112,7 +113,13 @@ class RateLimiterService {
   /**
    * Verifica se uma requisição pode ser feita
    */
-  canMakeRequest(provider: Provider): boolean {
+  canMakeRequest(provider: Provider, userId?: string | null): boolean {
+    // Verifica abuse detector primeiro
+    if (userId && !abuseDetector.canPerformAction(userId, 'api_call')) {
+      logger.warn('Request blocked by abuse detector', { provider, userId }, 'RateLimiter');
+      return false;
+    }
+
     const config = this.configs.get(provider);
     if (!config) return true;
 
@@ -184,7 +191,7 @@ class RateLimiterService {
   /**
    * Registra uma requisição
    */
-  recordRequest(provider: Provider): void {
+  recordRequest(provider: Provider, userId?: string | null): void {
     const requests = this.requests.get(provider) || [];
     
     requests.push({
@@ -194,6 +201,11 @@ class RateLimiterService {
 
     this.requests.set(provider, requests);
     this.saveToStorage();
+
+    // Registra no abuse detector
+    if (userId) {
+      abuseDetector.recordAction(userId, 'api_call', { provider });
+    }
 
     metricsCollector.trackPerformance({
       operation: `${provider}_request_recorded`,
@@ -208,21 +220,40 @@ class RateLimiterService {
   async tryRequest<T>(
     provider: Provider,
     fn: () => Promise<T>,
-    onLimited?: () => void
+    onLimited?: () => void,
+    userId?: string | null
   ): Promise<T | null> {
-    if (!this.canMakeRequest(provider)) {
+    if (!this.canMakeRequest(provider, userId)) {
       if (onLimited) {
         onLimited();
       }
       return null;
     }
 
-    this.recordRequest(provider);
+    this.recordRequest(provider, userId);
 
     try {
       const result = await fn();
+      
+      // Registra sucesso no abuse detector
+      if (userId) {
+        abuseDetector.recordAction(userId, 'api_call', { 
+          provider, 
+          success: true 
+        });
+      }
+      
       return result;
     } catch (error) {
+      // Registra falha no abuse detector
+      if (userId) {
+        abuseDetector.recordAction(userId, 'api_call', { 
+          provider, 
+          success: false,
+          error: (error as Error).message
+        });
+      }
+      
       logger.error('Request failed', {
         provider,
         error: (error as Error).message

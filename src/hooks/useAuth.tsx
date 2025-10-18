@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { errorHandler, ErrorCategory, handleAsyncError } from '@/lib/error-handler';
 import { logger } from '@/lib/logger';
+import { abuseDetector } from '@/services/AbuseDetector';
 
 interface AuthContextType {
   user: User | null;
@@ -75,6 +76,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signUp = async (email: string, password: string, displayName?: string) => {
     setLoading(true);
+    
+    // Verifica abuse antes de tentar signup
+    if (!abuseDetector.canPerformAction(null, 'signup')) {
+      toast({
+        title: "Muitas tentativas",
+        description: "Por favor, aguarde alguns minutos antes de tentar novamente.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return { error: new Error('Too many signup attempts') };
+    }
+
     try {
       const redirectUrl = `${window.location.origin}/email-confirmation`;
       
@@ -85,6 +98,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           emailRedirectTo: redirectUrl,
           data: displayName ? { display_name: displayName } : undefined
         }
+      });
+
+      // Registra tentativa de signup
+      abuseDetector.recordAction(null, 'signup', { 
+        email, 
+        success: !error 
       });
 
       if (error) {
@@ -141,10 +160,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     logger.userAction('Sign in initiated', undefined, { email });
 
+    // Verifica abuse antes de tentar login
+    if (!abuseDetector.canPerformAction(null, 'login')) {
+      toast({
+        title: "Muitas tentativas",
+        description: "Por favor, aguarde alguns minutos antes de tentar novamente.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return { error: new Error('Too many login attempts') };
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+      });
+
+      // Registra tentativa de login
+      abuseDetector.recordAction(null, 'login', { 
+        email, 
+        success: !error 
       });
 
       if (error) {
@@ -175,6 +211,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const resetPassword = async (email: string) => {
     logger.userAction('Password reset initiated', undefined, { email });
 
+    // Verifica abuse antes de tentar reset
+    if (!abuseDetector.canPerformAction(null, 'password_reset')) {
+      toast({
+        title: "Muitas tentativas",
+        description: "Por favor, aguarde alguns minutos antes de tentar novamente.",
+        variant: "destructive",
+      });
+      return { error: new Error('Too many password reset attempts') };
+    }
+
     const result = await handleAsyncError(
       async () => {
         const redirectUrl = `${window.location.origin}/update-password`;
@@ -183,6 +229,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: redirectUrl,
+        });
+
+        // Registra tentativa de reset
+        abuseDetector.recordAction(null, 'password_reset', { 
+          email, 
+          success: !error 
         });
 
         if (error) {
