@@ -196,3 +196,130 @@ Visit `/metrics` (requires authentication) or navigate through:
 - Current latency
 - Error rates
 - Last error messages
+
+---
+
+## Analytics Integration
+
+Sistema de analytics integrado com Mixpanel e Amplitude para rastreamento de eventos e comportamento do usuário.
+
+### Provedores Suportados
+
+- **Mixpanel** - Analytics avançado com funil e cohorts
+- **Amplitude** - Analytics comportamental e product analytics
+- **None** - Modo debug sem provider externo
+
+### Configuração
+
+Para habilitar analytics, adicione as variáveis de ambiente:
+
+```typescript
+// Para Mixpanel
+VITE_MIXPANEL_TOKEN=your_token_here
+
+// Para Amplitude  
+VITE_AMPLITUDE_API_KEY=your_api_key_here
+```
+
+### Uso no Código
+
+```typescript
+import { useAnalytics } from '@/hooks/useAnalytics';
+
+function MyComponent() {
+  const { track, trackEvent } = useAnalytics({
+    provider: 'mixpanel', // ou 'amplitude' ou 'none'
+    autoTrackPages: true
+  });
+
+  // Track evento customizado
+  track('Button Clicked', { 
+    buttonName: 'Subscribe',
+    location: 'header' 
+  });
+
+  // Eventos pré-definidos
+  trackEvent.lessonCompleted('lesson-1', 'Introduction', 95);
+  trackEvent.achievementUnlocked('first-lesson', 'First Steps');
+  trackEvent.subscriptionStarted('premium', 29.99);
+}
+```
+
+### Eventos Rastreados Automaticamente
+
+1. **Autenticação**
+   - User Signed Up
+   - User Logged In
+   - User Logged Out
+
+2. **Navegação**
+   - Page Viewed (automático com autoTrackPages)
+
+3. **Lições**
+   - Lesson Started
+   - Lesson Completed
+
+4. **Exercícios**
+   - Exercise Completed
+
+5. **Assinatura**
+   - Subscription Started (+ revenue)
+   - Subscription Canceled
+
+6. **Conquistas**
+   - Achievement Unlocked
+
+7. **Engajamento**
+   - Chat Message Sent
+   - Feedback Submitted
+   - Ebook Downloaded
+
+### Funcionalidades
+
+- **Identificação de Usuário**: Automática após login
+- **Track de Página**: Automático em mudanças de rota
+- **Time Events**: Medir duração de ações
+- **Revenue Tracking**: Rastrear receita e conversões
+- **Reset**: Limpar dados ao fazer logout
+
+### Debug Panel
+
+Interface de debug disponível em desenvolvimento para testar eventos:
+
+```typescript
+import { AnalyticsDebugPanel } from '@/components/AnalyticsDebugPanel';
+
+// Adicionar em uma página de admin/dev
+<AnalyticsDebugPanel />
+```
+
+### Arquitetura
+
+```
+┌─────────────────────┐
+│   useAnalytics      │
+│   (Hook)            │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ AnalyticsService    │
+│ (Singleton)         │
+└──────────┬──────────┘
+           │
+     ┌─────┴─────┐
+     ▼           ▼
+┌─────────┐ ┌──────────┐
+│Mixpanel │ │Amplitude │
+└─────────┘ └──────────┘
+```
+
+### Integração com Logger
+
+Todos os eventos de analytics também são registrados no sistema de logging estruturado para debug e auditoria.
+
+### Privacy
+
+- Dados do usuário são anonimizados quando possível
+- Respeita configurações de opt-out
+- Compatível com GDPR/LGPD
