@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Users, Menu } from "lucide-react";
+import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Users, Menu, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Link } from "react-router-dom";
@@ -56,6 +56,9 @@ export const Header = () => {
               </Link>
               <Link to="/quiz" className="text-muted-foreground hover:text-foreground transition-smooth">
                 Quiz
+              </Link>
+              <Link to="/metrics" className="text-muted-foreground hover:text-foreground transition-smooth">
+                Métricas
               </Link>
               <a 
                 href="https://comunidade.myenglishone.com/" 
@@ -146,6 +149,14 @@ export const Header = () => {
                     >
                       <Trophy className="h-5 w-5" />
                       Quiz
+                    </Link>
+                    <Link 
+                      to="/metrics" 
+                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Activity className="h-5 w-5" />
+                      Métricas
                     </Link>
                     <a 
                       href="https://comunidade.myenglishone.com/" 
@@ -285,6 +296,12 @@ export const Header = () => {
                   <Link to="/quiz">
                     <Trophy className="mr-2 h-4 w-4" />
                     <span>Quiz</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/metrics">
+                    <Activity className="mr-2 h-4 w-4" />
+                    <span>Métricas</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">

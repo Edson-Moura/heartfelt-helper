@@ -30,6 +30,7 @@ import ResetPassword from "./pages/ResetPassword";
 import UpdatePassword from "./pages/UpdatePassword";
 import EmailConfirmation from "./pages/EmailConfirmation";
 import RateLimits from "./pages/RateLimits";
+import Metrics from "./pages/Metrics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="/update-password" element={<UpdatePassword />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/rate-limits" element={<RateLimits />} />
+                <Route path="/metrics" element={<Metrics />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

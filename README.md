@@ -145,3 +145,54 @@ Visit `/rate-limits` to view real-time rate limiting status for all providers.
 ### Storage
 
 Rate limiting data is persisted in localStorage to maintain limits across page reloads while respecting privacy.
+
+## Metrics Dashboard
+
+A comprehensive metrics dashboard to monitor system health and performance in real-time.
+
+### Features
+
+- **Real-time Monitoring**: Auto-updates every 5 seconds
+- **Multiple Views**: Overview, APIs, Cache, Queue, and Health tabs
+- **Performance Metrics**: Track success rates, latency, and slow operations
+- **API Analytics**: Monitor individual provider performance and error rates
+- **Cache Statistics**: Visualize cache hit rates and efficiency
+- **Request Queue**: Monitor queue size, processing status, and batch operations
+- **Health Checks**: Real-time health status of all API providers
+
+### Accessing the Dashboard
+
+Visit `/metrics` (requires authentication) or navigate through:
+- Header menu → Métricas
+- Mobile menu → Métricas  
+- User dropdown → Métricas
+
+### Metrics Tracked
+
+#### Performance
+- Success rate across all operations
+- Average operation duration
+- Slow operations (>3 seconds)
+
+#### APIs
+- Total API calls per provider
+- Average latency by provider
+- Error rates and counts
+
+#### Cache
+- Hit/miss rates
+- Total hits and misses
+- Cache size in KB
+
+#### Queue
+- Current queue size
+- Operations being processed
+- Breakdown by priority and type
+- Pending batch operations
+
+#### Health
+- Provider health status (healthy/degraded/critical)
+- Last check timestamp
+- Current latency
+- Error rates
+- Last error messages
