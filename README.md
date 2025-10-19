@@ -71,3 +71,77 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Rate Limiting System
+
+This project includes a comprehensive rate limiting system that controls API usage based on subscription tiers.
+
+### Features
+
+- **Tier-based Limits**: Automatic rate limiting based on user subscription (Free, Premium, Enterprise)
+- **Multiple Providers**: Individual limits for each API provider (NVIDIA, ElevenLabs, D-ID, Deepgram, OpenAI)
+- **Burst Protection**: Prevents rapid request spikes with burst limiting
+- **Abuse Detection**: Integrated with abuse detection system for enhanced security
+- **Real-time Monitoring**: Live dashboard showing current usage and limits
+
+### Subscription Tiers
+
+#### Free Tier
+- NVIDIA: 20 req/min (burst: 5/10s)
+- ElevenLabs: 10 req/min (burst: 3/10s)
+- D-ID: 5 req/min (burst: 2/10s)
+- Deepgram: 30 req/min (burst: 10/10s)
+- OpenAI: 15 req/min (burst: 5/10s)
+
+#### Premium Tier
+- NVIDIA: 100 req/min (burst: 20/10s)
+- ElevenLabs: 50 req/min (burst: 15/10s)
+- D-ID: 30 req/min (burst: 10/10s)
+- Deepgram: 150 req/min (burst: 40/10s)
+- OpenAI: 75 req/min (burst: 20/10s)
+
+#### Enterprise Tier (Pro)
+- NVIDIA: 500 req/min (burst: 100/10s)
+- ElevenLabs: 200 req/min (burst: 50/10s)
+- D-ID: 100 req/min (burst: 30/10s)
+- Deepgram: 500 req/min (burst: 100/10s)
+- OpenAI: 300 req/min (burst: 75/10s)
+
+### Usage
+
+#### Using the Hook
+
+```typescript
+import { useRateLimiting } from '@/hooks/useRateLimiting';
+
+const MyComponent = () => {
+  const { canMakeRequest, tryRequest, getCurrentPlan } = useRateLimiting();
+  
+  const handleApiCall = async () => {
+    // Option 1: Manual check
+    if (canMakeRequest('openai')) {
+      // Make your API call
+    }
+    
+    // Option 2: Automatic rate limiting
+    const result = await tryRequest('openai', async () => {
+      return await myApiCall();
+    });
+  };
+};
+```
+
+#### Monitoring
+
+Visit `/rate-limits` to view real-time rate limiting status for all providers.
+
+### Architecture
+
+- **RateLimiter Service**: Core service managing limits and tracking requests
+- **useRateLimiting Hook**: React integration for components
+- **RateLimitMonitor Component**: Visual dashboard for monitoring
+- **Integration**: Connected with subscription system and abuse detection
+
+### Storage
+
+Rate limiting data is persisted in localStorage to maintain limits across page reloads while respecting privacy.

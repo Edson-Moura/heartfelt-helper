@@ -7,8 +7,8 @@ import { logger } from '@/lib/logger';
 import { metricsCollector } from './MetricsCollector';
 import { abuseDetector } from './AbuseDetector';
 
-type Provider = 'nvidia' | 'elevenlabs' | 'did' | 'deepgram' | 'openai';
-type PlanType = 'free' | 'premium' | 'enterprise';
+export type Provider = 'nvidia' | 'elevenlabs' | 'did' | 'deepgram' | 'openai';
+export type PlanType = 'free' | 'premium' | 'enterprise';
 
 interface RateLimitConfig {
   maxRequests: number; // Máximo de requisições
