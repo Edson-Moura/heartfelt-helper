@@ -9,9 +9,11 @@ import { Separator } from '@/components/ui/separator';
 import { MessageSquare, Loader2, Mail, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const Auth = () => {
   const { user, loading, signIn, signUp, resetPassword, resendConfirmation } = useAuth();
+  const { track } = useAnalytics();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -71,6 +73,8 @@ const Auth = () => {
       
       if (error) {
         console.error('Google sign in error:', error);
+      } else {
+        track('User Logged In', { method: 'google' });
       }
     } catch (error) {
       console.error('Unexpected error during Google sign in:', error);
@@ -90,6 +94,7 @@ const Auth = () => {
     const { error } = await signIn(email, password);
     
     if (!error) {
+      track('User Logged In', { method: 'email' });
       navigate('/dashboard');
     }
     
@@ -108,6 +113,7 @@ const Auth = () => {
     const { error } = await signUp(email, password, displayName);
     
     if (!error) {
+      track('User Signed Up', { method: 'email' });
       setPendingEmail(email);
       setShowEmailConfirmation(true);
     }
@@ -120,6 +126,7 @@ const Auth = () => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     
+    track('Password Reset Requested', { email });
     await resetPassword(email);
     setShowResetPassword(false);
   };

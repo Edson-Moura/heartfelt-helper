@@ -5,6 +5,7 @@ import { useAchievements } from '@/hooks/useAchievements';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useNotificationScheduler } from '@/hooks/useNotificationScheduler';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { Navigate, Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Badge as AchievementBadge } from '@/components/Badge';

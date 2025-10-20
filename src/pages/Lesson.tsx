@@ -6,6 +6,7 @@ import { useLessonProgress } from '@/hooks/useLessonProgress';
 import { useProgress } from '@/hooks/useProgress';
 import { useAchievements } from '@/hooks/useAchievements';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { Header } from '@/components/Header';
 import { Celebration } from '@/components/Celebration';
 import { LimitReachedModal } from '@/components/LimitReachedModal';
@@ -55,6 +56,7 @@ const Lesson = () => {
   const { newBadges, dismissNewBadges } = useAchievements();
   const { hasReachedDailyLessonLimit, hasReachedSentenceLimit, currentPlan } = usePlanLimits();
   const { toast } = useToast();
+  const { track } = useAnalytics();
   const navigate = useNavigate();
 
   const [lesson, setLesson] = useState<LessonData | null>(null);
@@ -127,6 +129,13 @@ const Lesson = () => {
       setLesson({
         ...lessonData,
         sentences: Array.from(uniqueMap.values()),
+      });
+      
+      // Track lesson started
+      track('Lesson Started', { 
+        lessonId: lessonData.id, 
+        lessonTitle: lessonData.title,
+        level: lessonData.level 
       });
     } else {
       toast({
@@ -224,6 +233,14 @@ const Lesson = () => {
       // Lesson completed - marcar como concluída
       if (lessonId) {
         completLesson(lessonId);
+        
+        // Track lesson completed
+        track('Lesson Completed', { 
+          lessonId: lesson.id, 
+          lessonTitle: lesson.title,
+          level: lesson.level,
+          sentencesCount: lesson.sentences.length
+        });
       }
       
       toast({

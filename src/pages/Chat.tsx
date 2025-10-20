@@ -14,6 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { LimitReachedModal } from '@/components/LimitReachedModal';
 import { PlanUpgradeCard } from '@/components/PlanUpgradeCard';
 import { useToast } from '@/hooks/use-toast';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -45,6 +46,7 @@ const Chat = () => {
   const { user, loading: authLoading } = useAuth();
   const { hasReachedChatLimit, getRemainingUsage, getUsagePercentage, incrementChatMessages, currentPlan } = usePlanLimits();
   const { toast } = useToast();
+  const { track } = useAnalytics();
   const { 
     isSupported, 
     isListening, 
@@ -145,6 +147,9 @@ const Chat = () => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Track chat message
+      track('Chat Message Sent', { provider: 'nvidia' });
       
       // Speak the AI response
       speakText(data.response);

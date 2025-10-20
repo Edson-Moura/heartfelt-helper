@@ -9,6 +9,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HealthMonitor } from "@/components/HealthMonitor";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
+import { AnalyticsInitializer } from "@/components/AnalyticsInitializer";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -39,6 +40,7 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <AnalyticsInitializer />
         <CelebrationProvider>
           <TooltipProvider>
             <Toaster />

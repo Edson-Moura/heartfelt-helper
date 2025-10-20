@@ -3,6 +3,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useLessons } from '@/hooks/useLessons';
 import { useLessonProgress } from '@/hooks/useLessonProgress';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { Navigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
