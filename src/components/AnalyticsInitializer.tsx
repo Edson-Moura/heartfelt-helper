@@ -8,12 +8,18 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 
 export const AnalyticsInitializer = () => {
   const location = useLocation();
-  const { trackPage } = useAnalytics();
+  const analytics = useAnalytics();
 
   // Track page views on route change
   useEffect(() => {
-    trackPage(location.pathname);
-  }, [location.pathname, trackPage]);
+    try {
+      if (analytics.isInitialized) {
+        analytics.trackPage(location.pathname);
+      }
+    } catch (error) {
+      console.error('Analytics tracking error:', error);
+    }
+  }, [location.pathname, analytics]);
 
   return null;
 };

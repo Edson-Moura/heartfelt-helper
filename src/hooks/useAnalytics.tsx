@@ -31,38 +31,8 @@ export const useAnalytics = (options: UseAnalyticsOptions = {}) => {
     }
   }, [user, subscriptionData]);
 
-  // Auto-track page views
-  useEffect(() => {
-    if (!autoTrackPages || !analyticsService.isInitialized()) return;
-
-    const trackPageView = () => {
-      const pageName = document.title || window.location.pathname;
-      analyticsService.page(pageName, {
-        referrer: document.referrer,
-      });
-    };
-
-    // Track initial page
-    trackPageView();
-
-    // Track on route changes
-    window.addEventListener('popstate', trackPageView);
-    
-    // Observa mudanças no title
-    const observer = new MutationObserver(() => {
-      trackPageView();
-    });
-
-    const titleElement = document.querySelector('title');
-    if (titleElement) {
-      observer.observe(titleElement, { childList: true });
-    }
-
-    return () => {
-      window.removeEventListener('popstate', trackPageView);
-      observer.disconnect();
-    };
-  }, [autoTrackPages]);
+  // Auto-track page views (disabled, use trackPage manually instead)
+  // This prevents errors during initialization
 
   // Reset ao fazer logout
   useEffect(() => {

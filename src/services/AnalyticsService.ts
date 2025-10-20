@@ -30,6 +30,11 @@ class AnalyticsService {
    * Inicializa o serviço de analytics
    */
   async initialize(provider: AnalyticsProvider = 'none'): Promise<void> {
+    // Prevent re-initialization
+    if (this.initialized && this.provider === provider) {
+      return;
+    }
+
     this.provider = provider;
 
     try {
@@ -43,6 +48,7 @@ class AnalyticsService {
       logger.info('Analytics initialized', { provider }, 'AnalyticsService');
     } catch (error) {
       logger.error('Failed to initialize analytics', { error, provider }, 'AnalyticsService');
+      this.initialized = false;
     }
   }
 
