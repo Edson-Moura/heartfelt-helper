@@ -5,23 +5,54 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Menu, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
+import { OnboardingHeader } from "@/components/onboarding/OnboardingHeader";
+import { SkipOnboardingModal } from "@/components/onboarding/SkipOnboardingModal";
 import whatsappIcon from "@/assets/whatsapp-icon.svg";
 import { useState } from "react";
 
 export const Header = () => {
   const { user, signOut, loading } = useAuth();
   const { profile } = useProfile();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [skipModalOpen, setSkipModalOpen] = useState(false);
+
+  // Check if we're on the onboarding page
+  const isOnboarding = location.pathname === '/onboarding';
 
   const handleSignOut = async () => {
     await signOut();
   };
 
+  const handleOnboardingExit = () => {
+    setSkipModalOpen(true);
+  };
+
+  const handleSkipOnboarding = () => {
+    setSkipModalOpen(false);
+    handleSignOut();
+  };
+
   const getUserInitials = (email: string) => {
     return email.substring(0, 2).toUpperCase();
   };
+
+  // Show minimal header during onboarding
+  if (isOnboarding) {
+    return (
+      <>
+        <OnboardingHeader onExit={handleOnboardingExit} />
+        <SkipOnboardingModal
+          open={skipModalOpen}
+          onOpenChange={setSkipModalOpen}
+          onContinue={() => setSkipModalOpen(false)}
+          onSkip={handleSkipOnboarding}
+        />
+      </>
+    );
+  }
 
   return (
     <header className="bg-card/80 backdrop-blur-sm border-b border-border sticky top-0 z-50">
