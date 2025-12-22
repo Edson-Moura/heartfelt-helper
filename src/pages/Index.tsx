@@ -7,6 +7,8 @@ import EbookLeadSection from "@/components/EbookLeadSection";
 import { OnboardingSection } from "@/components/OnboardingSection";
 import { PricingSection } from "@/components/PricingSection";
 import { Footer } from "@/components/Footer";
+import { StatsCounter } from "@/components/social-proof/StatsCounter";
+import { LiveActivityFeed } from "@/components/social-proof/LiveActivityFeed";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
@@ -49,11 +51,16 @@ const Index = () => {
       <HeroSection />
       <FeaturesSection />
       <TestimonialsSection />
+      <StatsCounter className="mt-8" />
       <QuickAssessmentSection />
       <EbookLeadSection />
       <OnboardingSection />
       <PricingSection />
       <Footer />
+      {/* Desktop: feed fixo no canto inferior direito */}
+      <LiveActivityFeed />
+      {/* Mobile: banner fixo no topo da landing, próximo aos depoimentos */}
+      <LiveActivityFeed className="fixed inset-x-4 top-24 z-30 block md:hidden" />
     </div>
   );
 };
