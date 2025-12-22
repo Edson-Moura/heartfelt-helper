@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useLessons } from '@/hooks/useLessons';
 import { useLessonProgress } from '@/hooks/useLessonProgress';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useFreemiumLimits } from '@/hooks/useFreemiumLimits';
 import { Navigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
+import { FreemiumBanner } from '@/components/FreemiumBanner';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +40,15 @@ const Lessons = () => {
     loading: progressLoading 
   } = useLessonProgress();
   const { checkSubscription } = useSubscription();
+  const { 
+    showUpgradeModal, 
+    closeUpgradeModal, 
+    upgradeTrigger,
+    triggerUpgrade,
+    planType,
+  } = useFreemiumLimits();
+  
+  const [selectedLockedLesson, setSelectedLockedLesson] = useState<string | null>(null);
 
   // Refresh subscription status when page loads
   useEffect(() => {
@@ -118,7 +131,14 @@ const Lessons = () => {
   const isLessonUnlockedForUser = (lesson: any, index: number, level: string) => {
     // Para lições de iniciante, usar o sistema de progresso real
     if (level === 'beginner') {
-      return isLessonUnlocked(lesson.id);
+      const unlocked = isLessonUnlocked(lesson.id);
+      
+      // Para plano free, apenas primeiras 3 lições
+      if (planType === 'free' && index >= 3) {
+        return false;
+      }
+      
+      return unlocked;
     }
     
     // Para outros níveis, manter lógica anterior
@@ -131,9 +151,27 @@ const Lessons = () => {
     return masteredCount >= requiredMastery;
   };
 
+  const handleLockedLessonClick = (lessonId: string, lessonIndex: number) => {
+    if (planType === 'free' && lessonIndex >= 3) {
+      setSelectedLockedLesson(lessonId);
+      triggerUpgrade('lesson_limit', `Desbloqueie todas as 50+ lições por apenas R$ 29,90/mês`);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <>
+      <UpgradeModal 
+        open={showUpgradeModal}
+        onClose={closeUpgradeModal}
+        trigger={upgradeTrigger}
+        context={{
+          feature: 'lessons'
+        }}
+      />
+      
+      <div className="min-h-screen bg-gradient-subtle">
       <Header />
+      <FreemiumBanner />
       
       <main className="container mx-auto px-4 py-8">
         {/* Header Section */}
@@ -200,6 +238,11 @@ const Lessons = () => {
                             )}
                             <span className="text-lg">{lesson.title}</span>
                           </CardTitle>
+                          {!isUnlocked && planType === 'free' && index >= 3 && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              🔒 Premium
+                            </Badge>
+                          )}
                           <CardDescription className="mt-2">
                             {lesson.description || "Aprenda novas frases e vocabulário"}
                           </CardDescription>
@@ -230,9 +273,14 @@ const Lessons = () => {
                             </Button>
                           </Link>
                         ) : (
-                          <Button size="sm" disabled className="gap-2">
+                          <Button 
+                            size="sm" 
+                            disabled={!planType || planType !== 'free' || index < 3}
+                            className="gap-2"
+                            onClick={() => handleLockedLessonClick(lesson.id, index)}
+                          >
                             <Lock className="w-4 h-4" />
-                            Bloqueado
+                            {planType === 'free' && index >= 3 ? 'Premium' : 'Bloqueado'}
                           </Button>
                         )}
                       </div>
@@ -258,6 +306,7 @@ const Lessons = () => {
         )}
       </main>
     </div>
+    </>
   );
 };
 
