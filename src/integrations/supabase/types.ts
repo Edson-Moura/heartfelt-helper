@@ -92,6 +92,51 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string | null
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          new_data: Json | null
+          old_data: Json | null
+          severity: string | null
+          table_name: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          severity?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          severity?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bd_ativo: {
         Row: {
           created_at: string
@@ -662,14 +707,25 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: undefined
       }
-      inserir_3x_e_parar: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      log_security_event: {
-        Args: { event_type: string; table_name: string; user_id?: string }
-        Returns: undefined
-      }
+      inserir_3x_e_parar: { Args: never; Returns: undefined }
+      log_security_event:
+        | {
+            Args: { event_type: string; table_name: string; user_id?: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              action?: string
+              event_type: string
+              metadata?: Json
+              new_data?: Json
+              old_data?: Json
+              severity?: string
+              table_name: string
+              user_id?: string
+            }
+            Returns: undefined
+          }
       validate_subscriber_access: {
         Args: { target_user_id: string }
         Returns: boolean
