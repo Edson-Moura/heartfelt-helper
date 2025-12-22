@@ -227,6 +227,51 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_challenges: {
+        Row: {
+          challenge_type: string
+          created_at: string | null
+          description: string
+          difficulty: string
+          gems_reward: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          requirement_type: string
+          requirement_value: number
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          challenge_type: string
+          created_at?: string | null
+          description: string
+          difficulty: string
+          gems_reward?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          requirement_type: string
+          requirement_value: number
+          title: string
+          xp_reward: number
+        }
+        Update: {
+          challenge_type?: string
+          created_at?: string | null
+          description?: string
+          difficulty?: string
+          gems_reward?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          requirement_type?: string
+          requirement_value?: number
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
       daily_usage: {
         Row: {
           ai_interactions: number
@@ -533,8 +578,11 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          current_level: number | null
+          current_xp: number | null
           daily_goal: number | null
           display_name: string | null
+          gems: number | null
           id: string
           last_activity: string | null
           learning_goal: string | null
@@ -545,6 +593,7 @@ export type Database = {
           preferred_training_mode: string | null
           proficiency_level: string | null
           streak_count: number | null
+          streak_freezes_available: number | null
           total_phrases_learned: number | null
           updated_at: string
           user_id: string
@@ -553,8 +602,11 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          current_level?: number | null
+          current_xp?: number | null
           daily_goal?: number | null
           display_name?: string | null
+          gems?: number | null
           id?: string
           last_activity?: string | null
           learning_goal?: string | null
@@ -565,6 +617,7 @@ export type Database = {
           preferred_training_mode?: string | null
           proficiency_level?: string | null
           streak_count?: number | null
+          streak_freezes_available?: number | null
           total_phrases_learned?: number | null
           updated_at?: string
           user_id: string
@@ -573,8 +626,11 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          current_level?: number | null
+          current_xp?: number | null
           daily_goal?: number | null
           display_name?: string | null
+          gems?: number | null
           id?: string
           last_activity?: string | null
           learning_goal?: string | null
@@ -585,6 +641,7 @@ export type Database = {
           preferred_training_mode?: string | null
           proficiency_level?: string | null
           streak_count?: number | null
+          streak_freezes_available?: number | null
           total_phrases_learned?: number | null
           updated_at?: string
           user_id?: string
@@ -783,6 +840,50 @@ export type Database = {
         }
         Relationships: []
       }
+      user_daily_challenges: {
+        Row: {
+          challenge_date: string
+          challenge_id: string
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          progress: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          challenge_date?: string
+          challenge_id: string
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          progress?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          challenge_date?: string
+          challenge_id?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          progress?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_challenges_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "daily_challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_progress: {
         Row: {
           attempts: number | null
@@ -868,6 +969,7 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_level: { Args: { xp: number }; Returns: number }
       initialize_lesson_progress_for_user: {
         Args: { target_user_id: string }
         Returns: undefined

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useProgress } from '@/hooks/useProgress';
@@ -17,6 +18,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { StreakWidget } from '@/components/gamification/StreakWidget';
+import { DailyChallenges } from '@/components/gamification/DailyChallenges';
+import { StreakLossModal } from '@/components/gamification/StreakLossModal';
 import { 
   BookOpen, 
   Target, 
@@ -35,7 +39,7 @@ import {
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, updateProfile } = useProfile();
   const { todayActivity, getMasteredCount, getDailyGoalProgress, loading: progressLoading } = useProgress();
   const { 
     getUnlockedBadges, 
@@ -48,6 +52,24 @@ const Dashboard = () => {
   
   // Initialize notification scheduler
   useNotificationScheduler();
+
+  const [streakModalOpen, setStreakModalOpen] = useState(false);
+
+  // Abrir modal de risco de streak quando estiver perto da meia-noite e sem atividade hoje
+  useEffect(() => {
+    if (!profile) return;
+    const todayPracticed = !!todayActivity?.sentences_practiced && todayActivity.sentences_practiced > 0;
+    if (!todayPracticed && profile.streak_count > 0) {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      const diffMs = midnight.getTime() - now.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      if (diffHours <= 2 && diffHours > 0) {
+        setStreakModalOpen(true);
+      }
+    }
+  }, [profile, todayActivity]);
 
   if (loading || profileLoading || progressLoading) {
     return (
@@ -81,6 +103,23 @@ const Dashboard = () => {
         badges={newBadges} 
         onDismiss={dismissNewBadges}
         show={newBadges.length > 0}
+      />
+
+      <StreakLossModal
+        open={streakModalOpen}
+        onOpenChange={setStreakModalOpen}
+        currentStreak={profile?.streak_count || 0}
+        streakFreezes={profile?.streak_freezes_available ?? 1}
+        onUseStreakFreeze={async () => {
+          if (!profile) return;
+          const available = profile.streak_freezes_available ?? 1;
+          if (available <= 0) return;
+          const today = new Date().toISOString().split('T')[0];
+          await updateProfile({
+            streak_freezes_available: available - 1,
+            last_activity: today,
+          });
+        }}
       />
       
       <div className="min-h-screen bg-gradient-subtle">
@@ -137,9 +176,40 @@ const Dashboard = () => {
           )}
         </div>
 
+        {/* Gamification Row: Streak + Desafios Diários */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <div className="lg:col-span-2">
+            <StreakWidget
+              currentStreak={profile?.streak_count || 0}
+              weeklyActivity={[false, false, false, false, false, false, false]}
+              nextMilestone={
+                (profile?.streak_count || 0) >= 365
+                  ? 365
+                  : (profile?.streak_count || 0) >= 100
+                    ? 365
+                    : (profile?.streak_count || 0) >= 30
+                      ? 100
+                      : (profile?.streak_count || 0) >= 7
+                        ? 30
+                        : 7
+              }
+              streakFreezes={profile?.streak_freezes_available ?? 1}
+              secondsToMidnight={(() => {
+                const now = new Date();
+                const midnight = new Date();
+                midnight.setHours(24, 0, 0, 0);
+                return Math.max(0, Math.floor((midnight.getTime() - now.getTime()) / 1000));
+              })()}
+            />
+          </div>
+          <div>
+            <DailyChallenges />
+          </div>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-fade-in"
-             style={{ animationDelay: '0.1s' }}>
+             style={{ animationDelay: '0.15s' }}>
           <Card className="shadow-card hover:shadow-elevated transition-smooth hover-scale group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Sequência</CardTitle>
