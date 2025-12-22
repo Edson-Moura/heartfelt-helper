@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import { StreakWidget } from '@/components/gamification/StreakWidget';
 import { DailyChallenges } from '@/components/gamification/DailyChallenges';
 import { StreakLossModal } from '@/components/gamification/StreakLossModal';
+import { EventBanner } from '@/components/gamification/EventBanner';
+import { LiveActivityFeed } from '@/components/social-proof/LiveActivityFeed';
 import { 
   BookOpen, 
   Target, 
@@ -174,6 +176,11 @@ const Dashboard = () => {
               </Button>
             </div>
           )}
+        </div>
+
+        {/* Event Banner */}
+        <div className="mb-8 animate-fade-in" style={{ animationDelay: '0.05s' }}>
+          <EventBanner />
         </div>
 
         {/* Gamification Row: Streak + Desafios Diários */}
@@ -497,6 +504,9 @@ const Dashboard = () => {
           </Card>
         </div>
       </main>
+      
+      {/* Live Activity Feed - Fixed position */}
+      <LiveActivityFeed />
     </div>
     </>
   );
