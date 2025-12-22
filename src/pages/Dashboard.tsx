@@ -7,6 +7,7 @@ import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useNotificationScheduler } from '@/hooks/useNotificationScheduler';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useGamification } from '@/hooks/useGamification';
 import { Navigate, Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { FreemiumBanner } from '@/components/FreemiumBanner';
@@ -42,7 +43,7 @@ import {
 const Dashboard = () => {
   const { user, loading } = useAuth();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
-  const { todayActivity, getMasteredCount, getDailyGoalProgress, loading: progressLoading } = useProgress();
+  const { todayActivity, dailyActivities, getMasteredCount, getDailyGoalProgress, loading: progressLoading } = useProgress();
   const { 
     getUnlockedBadges, 
     newBadges, 
@@ -51,6 +52,7 @@ const Dashboard = () => {
   } = useAchievements();
   const { currentPlan, hasReachedDailyLessonLimit, hasReachedSentenceLimit } = usePlanLimits();
   const { subscriptionData, checkSubscription, loading: subscriptionLoading } = useSubscription();
+  const { gamification, loading: gamificationLoading, useStreakFreeze } = useGamification();
   
   // Initialize notification scheduler
   useNotificationScheduler();
@@ -73,7 +75,7 @@ const Dashboard = () => {
     }
   }, [profile, todayActivity]);
 
-  if (loading || profileLoading || progressLoading) {
+  if (loading || profileLoading || progressLoading || gamificationLoading) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
         <div className="text-center space-y-4 animate-fade-in">
@@ -99,6 +101,32 @@ const Dashboard = () => {
     return <Navigate to="/onboarding" replace />;
   }
 
+  const effectiveStreak = gamification?.current_streak ?? profile?.streak_count ?? 0;
+
+  const weeklyActivity = (() => {
+    if (!dailyActivities || dailyActivities.length === 0) {
+      return [false, false, false, false, false, false, false];
+    }
+
+    const practicedDates = new Set(
+      dailyActivities
+        .filter((day) => (day.sentences_practiced ?? 0) > 0)
+        .map((day) => day.activity_date)
+    );
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 7 }).map((_, index) => {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + index);
+      const key = date.toISOString().split('T')[0];
+      return practicedDates.has(key);
+    });
+  })();
+
   return (
     <>
       <Celebration 
@@ -110,17 +138,10 @@ const Dashboard = () => {
       <StreakLossModal
         open={streakModalOpen}
         onOpenChange={setStreakModalOpen}
-        currentStreak={profile?.streak_count || 0}
-        streakFreezes={profile?.streak_freezes_available ?? 1}
+        currentStreak={effectiveStreak}
+        streakFreezes={gamification?.streak_freezes_available ?? profile?.streak_freezes_available ?? 1}
         onUseStreakFreeze={async () => {
-          if (!profile) return;
-          const available = profile.streak_freezes_available ?? 1;
-          if (available <= 0) return;
-          const today = new Date().toISOString().split('T')[0];
-          await updateProfile({
-            streak_freezes_available: available - 1,
-            last_activity: today,
-          });
+          await useStreakFreeze();
         }}
       />
       
@@ -187,20 +208,20 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="lg:col-span-2">
             <StreakWidget
-              currentStreak={profile?.streak_count || 0}
-              weeklyActivity={[false, false, false, false, false, false, false]}
+              currentStreak={effectiveStreak}
+              weeklyActivity={weeklyActivity}
               nextMilestone={
-                (profile?.streak_count || 0) >= 365
+                effectiveStreak >= 365
                   ? 365
-                  : (profile?.streak_count || 0) >= 100
+                  : effectiveStreak >= 100
                     ? 365
-                    : (profile?.streak_count || 0) >= 30
+                    : effectiveStreak >= 30
                       ? 100
-                      : (profile?.streak_count || 0) >= 7
+                      : effectiveStreak >= 7
                         ? 30
                         : 7
               }
-              streakFreezes={profile?.streak_freezes_available ?? 1}
+              streakFreezes={gamification?.streak_freezes_available ?? profile?.streak_freezes_available ?? 1}
               secondsToMidnight={(() => {
                 const now = new Date();
                 const midnight = new Date();
@@ -223,9 +244,9 @@ const Dashboard = () => {
               <Flame className="h-4 w-4 text-orange group-hover:animate-pulse" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{profile?.streak_count || 0} dias</div>
+              <div className="text-2xl font-bold">{effectiveStreak} dias</div>
               <p className="text-xs text-muted-foreground">
-                {profile?.streak_count && profile.streak_count > 0 
+                {effectiveStreak > 0 
                   ? "Continue estudando para manter sua sequência!" 
                   : "Comece hoje e inicie sua sequência!"}
               </p>

@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useProfile } from '@/hooks/useProfile';
+import { gamificationEngine } from '@/services/GamificationEngine';
 
 interface UserProgress {
   id: string;
@@ -194,6 +195,13 @@ export const useProgress = () => {
       console.log('🔄 Refreshing progress data...');
       await fetchProgress();
       await updateTodayActivity(isCorrect, status === 'mastered');
+      
+      // Atualiza streak diária na engine de gamificação
+      try {
+        await gamificationEngine.updateStreak(user.id);
+      } catch (streakError) {
+        console.error('❌ Error updating streak in gamification engine:', streakError);
+      }
       
       // Add points to profile
       const pointsToAdd = isCorrect ? (status === 'mastered' ? 25 : 10) : 0;
