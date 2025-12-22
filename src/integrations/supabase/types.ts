@@ -227,6 +227,48 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_usage: {
+        Row: {
+          ai_interactions: number
+          conversation_minutes: number
+          conversations_count: number
+          created_at: string
+          date: string
+          exercises_completed: number
+          id: string
+          lessons_completed: number
+          pronunciation_checks: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_interactions?: number
+          conversation_minutes?: number
+          conversations_count?: number
+          created_at?: string
+          date?: string
+          exercises_completed?: number
+          id?: string
+          lessons_completed?: number
+          pronunciation_checks?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_interactions?: number
+          conversation_minutes?: number
+          conversations_count?: number
+          created_at?: string
+          date?: string
+          exercises_completed?: number
+          id?: string
+          lessons_completed?: number
+          pronunciation_checks?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ebook_leads: {
         Row: {
           created_at: string
