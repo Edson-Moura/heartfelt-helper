@@ -33,6 +33,7 @@ import EmailConfirmation from "./pages/EmailConfirmation";
 import RateLimits from "./pages/RateLimits";
 import Metrics from "./pages/Metrics";
 import NotFound from "./pages/NotFound";
+import FreemiumLanding from "./pages/FreemiumLanding";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/rate-limits" element={<RateLimits />} />
                 <Route path="/metrics" element={<Metrics />} />
+                <Route path="/freemium-landing" element={<FreemiumLanding />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
