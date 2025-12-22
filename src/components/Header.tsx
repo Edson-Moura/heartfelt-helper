@@ -12,6 +12,7 @@ import { SkipOnboardingModal } from "@/components/onboarding/SkipOnboardingModal
 import whatsappIcon from "@/assets/whatsapp-icon.svg";
 import { useState } from "react";
 import { XPSystem } from "@/components/gamification/XPSystem";
+import { GemsSystem } from "@/components/gamification/GemsSystem";
 
 export const Header = () => {
   const { user, signOut, loading } = useAuth();
@@ -110,12 +111,13 @@ export const Header = () => {
 
         <div className="flex items-center gap-1 md:gap-2 lg:gap-3">
           {user && (
-            <div className="hidden md:block mr-2 min-w-[220px]">
+            <div className="hidden md:flex items-center gap-2 mr-2">
               <XPSystem
                 displayName={profile?.display_name}
                 currentXP={profile?.current_xp ?? profile?.points}
                 currentLevel={profile?.current_level}
               />
+              <GemsSystem compact />
             </div>
           )}
           {/* Mobile/Tablet Menu */}

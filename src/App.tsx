@@ -40,6 +40,8 @@ import WallOfLove from "./pages/Wall-of-Love";
 import Battles from "./pages/Battles";
 import Leaderboard from "./pages/Leaderboard";
 import Friends from "./pages/Friends";
+import GemStore from "./pages/GemStore";
+import ProgressPage from "./pages/Progress";
  
 const queryClient = new QueryClient();
  
@@ -83,6 +85,8 @@ const App = () => (
                 <Route path="/battles" element={<Battles />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/friends" element={<Friends />} />
+                <Route path="/gem-store" element={<GemStore />} />
+                <Route path="/progress" element={<ProgressPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
