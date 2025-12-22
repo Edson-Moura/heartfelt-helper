@@ -120,6 +120,7 @@ const Achievements = () => {
                             isUnlocked={isUnlocked}
                             progress={progress}
                             showProgress={true}
+                            size="lg"
                           />
                         );
                       })}
@@ -143,13 +144,14 @@ const Achievements = () => {
                   <CardContent>
                     {unlockedBadges.length > 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {unlockedBadges.map((badge) => (
-                          <Badge
-                            key={badge.id}
-                            badge={badge}
-                            isUnlocked={true}
-                          />
-                        ))}
+                      {unlockedBadges.map((badge) => (
+                        <Badge
+                          key={badge.id}
+                          badge={badge}
+                          isUnlocked={true}
+                          size="lg"
+                        />
+                      ))}
                       </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -186,6 +188,7 @@ const Achievements = () => {
                             isUnlocked={false}
                             progress={progress}
                             showProgress={true}
+                            size="lg"
                           />
                         );
                       })}
@@ -233,6 +236,7 @@ const Achievements = () => {
                                 isUnlocked={isUnlocked}
                                 progress={progress}
                                 showProgress={!isUnlocked}
+                                size="lg"
                               />
                             );
                           })}

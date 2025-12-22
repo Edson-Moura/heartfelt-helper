@@ -39,12 +39,25 @@ export interface UserAchievement {
 // Icon mapping for achievement types
 const getIconForCategory = (category: string) => {
   switch (category) {
-    case 'milestone': return BookOpen;
-    case 'consistency': return Flame;
-    case 'mastery': return Star;
-    case 'level': return Crown;
-    case 'engagement': return Trophy;
-    default: return Award;
+    case 'milestone':
+    case 'learning':
+      return BookOpen;
+    case 'consistency':
+    case 'dedication':
+      return Flame;
+    case 'mastery':
+      return Star;
+    case 'level':
+      return Crown;
+    case 'engagement':
+    case 'competition':
+      return Trophy;
+    case 'social':
+      return Award;
+    case 'special':
+      return Zap;
+    default:
+      return Award;
   }
 };
 
@@ -80,56 +93,366 @@ export const useAchievements = () => {
 
   const loadAchievementTemplates = async () => {
     try {
-      // Create default achievements since we don't have achievement_templates table
       const defaultBadges: Badge[] = [
+        // APRENDIZADO (📚)
         {
-          id: '550e8400-e29b-41d4-a716-446655440001',
-          name: 'Primeira Lição',
-          description: 'Complete sua primeira lição',
-          icon: getIconForCategory('milestone'),
-          color: 'text-green-500',
+          id: "550e8400-e29b-41d4-a716-446655440001",
+          name: "Primeira Lição",
+          description: "Complete sua primeira lição",
+          icon: getIconForCategory("learning"),
+          color: "text-green-500",
           requirement: 1,
-          type: 'sentences_mastered',
-          category: 'milestone',
+          type: "lessons_completed",
+          category: "learning",
           points_reward: 50,
-          rarity: 'bronze'
+          rarity: "bronze",
         },
         {
-          id: '550e8400-e29b-41d4-a716-446655440002',
-          name: 'Consistência',
-          description: 'Mantenha uma sequência de 3 dias',
-          icon: getIconForCategory('consistency'),
-          color: 'text-orange-500',
-          requirement: 3,
-          type: 'streak_days',
-          category: 'consistency',
-          points_reward: 100,
-          rarity: 'silver'
-        },
-        {
-          id: '550e8400-e29b-41d4-a716-446655440003',
-          name: 'Estudante Dedicado',
-          description: 'Domine 10 frases',
-          icon: getIconForCategory('mastery'),
-          color: 'text-purple-500',
+          id: "550e8400-e29b-41d4-a716-446655440010",
+          name: "10 Lições Completadas",
+          description: "Complete 10 lições",
+          icon: getIconForCategory("learning"),
+          color: "text-primary",
           requirement: 10,
-          type: 'sentences_mastered',
-          category: 'mastery',
-          points_reward: 200,
-          rarity: 'gold'
+          type: "lessons_completed",
+          category: "learning",
+          points_reward: 150,
+          rarity: "bronze",
         },
         {
-          id: '550e8400-e29b-41d4-a716-446655440004',
-          name: 'Meta Diária',
-          description: 'Atinja sua meta diária por 7 dias',
-          icon: getIconForCategory('engagement'),
-          color: 'text-blue-500',
+          id: "550e8400-e29b-41d4-a716-446655440011",
+          name: "50 Lições Completadas",
+          description: "Complete 50 lições",
+          icon: getIconForCategory("learning"),
+          color: "text-blue-500",
+          requirement: 50,
+          type: "lessons_completed",
+          category: "learning",
+          points_reward: 400,
+          rarity: "silver",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440012",
+          name: "100 Lições Completadas",
+          description: "Complete 100 lições",
+          icon: getIconForCategory("learning"),
+          color: "text-purple-500",
+          requirement: 100,
+          type: "lessons_completed",
+          category: "learning",
+          points_reward: 800,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440013",
+          name: "500 Lições Completadas (Mestre)",
+          description: "Complete 500 lições ao longo da sua jornada",
+          icon: getIconForCategory("learning"),
+          color: "text-yellow-500",
+          requirement: 500,
+          type: "lessons_completed",
+          category: "learning",
+          points_reward: 3000,
+          rarity: "diamond",
+        },
+
+        // DEDICAÇÃO (🔥)
+        {
+          id: "550e8400-e29b-41d4-a716-446655440020",
+          name: "Primeira Semana",
+          description: "Estude 7 dias seguidos",
+          icon: getIconForCategory("dedication"),
+          color: "text-orange-500",
           requirement: 7,
-          type: 'daily_goal',
-          category: 'engagement',
+          type: "streak_days",
+          category: "dedication",
+          points_reward: 100,
+          rarity: "bronze",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440021",
+          name: "Streak 7 dias",
+          description: "Mantenha uma sequência de 7 dias",
+          icon: getIconForCategory("dedication"),
+          color: "text-red-500",
+          requirement: 7,
+          type: "streak_days",
+          category: "dedication",
           points_reward: 150,
-          rarity: 'silver'
-        }
+          rarity: "silver",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440022",
+          name: "Streak 30 dias",
+          description: "Mantenha uma sequência de 30 dias",
+          icon: getIconForCategory("dedication"),
+          color: "text-red-500",
+          requirement: 30,
+          type: "streak_days",
+          category: "dedication",
+          points_reward: 500,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440023",
+          name: "Streak 100 dias",
+          description: "Mantenha uma sequência de 100 dias",
+          icon: getIconForCategory("dedication"),
+          color: "text-red-600",
+          requirement: 100,
+          type: "streak_days",
+          category: "dedication",
+          points_reward: 2000,
+          rarity: "platinum",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440024",
+          name: "Streak 365 dias (Lenda)",
+          description: "Mantenha uma sequência de 365 dias",
+          icon: getIconForCategory("dedication"),
+          color: "text-red-700",
+          requirement: 365,
+          type: "streak_days",
+          category: "dedication",
+          points_reward: 10000,
+          rarity: "diamond",
+        },
+
+        // MAESTRIA (🎯)
+        {
+          id: "550e8400-e29b-41d4-a716-446655440030",
+          name: "10 Exercícios Perfeitos",
+          description: "Complete 10 exercícios sem erros",
+          icon: getIconForCategory("mastery"),
+          color: "text-primary",
+          requirement: 10,
+          type: "perfect_exercises",
+          category: "mastery",
+          points_reward: 200,
+          rarity: "silver",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440031",
+          name: "100 Pronúncias Perfeitas",
+          description: "Acerte 100 pronúncias perfeitas",
+          icon: getIconForCategory("mastery"),
+          color: "text-teal",
+          requirement: 100,
+          type: "perfect_pronunciations",
+          category: "mastery",
+          points_reward: 500,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440032",
+          name: "Nível B1 Alcançado",
+          description: "Alcance o nível de proficiência B1",
+          icon: getIconForCategory("level"),
+          color: "text-blue-500",
+          requirement: 1,
+          type: "level_b1",
+          category: "mastery",
+          points_reward: 800,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440033",
+          name: "Nível C2 Alcançado",
+          description: "Alcance o nível máximo de proficiência C2",
+          icon: getIconForCategory("level"),
+          color: "text-purple-600",
+          requirement: 1,
+          type: "level_c2",
+          category: "mastery",
+          points_reward: 3000,
+          rarity: "diamond",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440034",
+          name: "1000 Palavras Aprendidas",
+          description: "Aprenda 1000 palavras ao longo da sua jornada",
+          icon: getIconForCategory("mastery"),
+          color: "text-green-600",
+          requirement: 1000,
+          type: "words_learned",
+          category: "mastery",
+          points_reward: 5000,
+          rarity: "diamond",
+        },
+
+        // COMPETIÇÃO (⚔️) - dependem do sistema de batalhas
+        {
+          id: "550e8400-e29b-41d4-a716-446655440040",
+          name: "Primeira Batalha Vencida",
+          description: "Vença sua primeira batalha 1v1",
+          icon: getIconForCategory("competition"),
+          color: "text-primary",
+          requirement: 1,
+          type: "battles_won",
+          category: "competition",
+          points_reward: 200,
+          rarity: "bronze",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440041",
+          name: "10 Batalhas Vencidas",
+          description: "Vença 10 batalhas 1v1",
+          icon: getIconForCategory("competition"),
+          color: "text-primary",
+          requirement: 10,
+          type: "battles_won",
+          category: "competition",
+          points_reward: 800,
+          rarity: "silver",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440042",
+          name: "100 Batalhas Vencidas",
+          description: "Vença 100 batalhas 1v1",
+          icon: getIconForCategory("competition"),
+          color: "text-primary",
+          requirement: 100,
+          type: "battles_won",
+          category: "competition",
+          points_reward: 5000,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440043",
+          name: "Top 10 Semanal",
+          description: "Fique entre o top 10 do ranking semanal",
+          icon: getIconForCategory("competition"),
+          color: "text-yellow-500",
+          requirement: 1,
+          type: "weekly_top10",
+          category: "competition",
+          points_reward: 1500,
+          rarity: "platinum",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440044",
+          name: "Campeão Mensal",
+          description: "Termine o mês como campeão do ranking",
+          icon: getIconForCategory("competition"),
+          color: "text-yellow-600",
+          requirement: 1,
+          type: "monthly_champion",
+          category: "competition",
+          points_reward: 8000,
+          rarity: "diamond",
+        },
+
+        // SOCIAL (👥)
+        {
+          id: "550e8400-e29b-41d4-a716-446655440050",
+          name: "Primeiro Amigo Adicionado",
+          description: "Adicione seu primeiro amigo na plataforma",
+          icon: getIconForCategory("social"),
+          color: "text-blue-500",
+          requirement: 1,
+          type: "friends_added",
+          category: "social",
+          points_reward: 100,
+          rarity: "bronze",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440051",
+          name: "5 Amigos Convidados",
+          description: "Convide 5 amigos para estudar com você",
+          icon: getIconForCategory("social"),
+          color: "text-blue-500",
+          requirement: 5,
+          type: "friends_invited",
+          category: "social",
+          points_reward: 400,
+          rarity: "silver",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440052",
+          name: "10 Pessoas Ajudadas",
+          description: "Ajude 10 pessoas em dúvidas ou correções",
+          icon: getIconForCategory("social"),
+          color: "text-green-500",
+          requirement: 10,
+          type: "people_helped",
+          category: "social",
+          points_reward: 800,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440053",
+          name: "100 Mensagens no Chat",
+          description: "Envie 100 mensagens no chat",
+          icon: getIconForCategory("social"),
+          color: "text-purple-500",
+          requirement: 100,
+          type: "chat_messages",
+          category: "social",
+          points_reward: 1200,
+          rarity: "platinum",
+        },
+
+        // ESPECIAIS (🎁) - destravados manualmente por eventos
+        {
+          id: "550e8400-e29b-41d4-a716-446655440060",
+          name: "Easter Egg Hunter",
+          description: "Encontre um segredo escondido na plataforma",
+          icon: getIconForCategory("special"),
+          color: "text-teal",
+          requirement: 1,
+          type: "special_event",
+          category: "special",
+          points_reward: 500,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440061",
+          name: "Evento de Halloween",
+          description: "Participe do evento especial de Halloween",
+          icon: getIconForCategory("special"),
+          color: "text-orange-500",
+          requirement: 1,
+          type: "special_event",
+          category: "special",
+          points_reward: 800,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440062",
+          name: "Evento de Natal",
+          description: "Participe do evento especial de Natal",
+          icon: getIconForCategory("special"),
+          color: "text-green-500",
+          requirement: 1,
+          type: "special_event",
+          category: "special",
+          points_reward: 800,
+          rarity: "gold",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440063",
+          name: "Beta Tester Original",
+          description: "Faça parte do grupo original de beta testers",
+          icon: getIconForCategory("special"),
+          color: "text-primary",
+          requirement: 1,
+          type: "special_event",
+          category: "special",
+          points_reward: 1500,
+          rarity: "platinum",
+        },
+        {
+          id: "550e8400-e29b-41d4-a716-446655440064",
+          name: "Primeiro Premium",
+          description: "Ative sua primeira assinatura premium",
+          icon: getIconForCategory("special"),
+          color: "text-yellow-500",
+          requirement: 1,
+          type: "first_premium",
+          category: "special",
+          points_reward: 2000,
+          rarity: "diamond",
+        },
       ];
 
       setBadges(defaultBadges);
@@ -177,12 +500,14 @@ export const useAchievements = () => {
       sentences: getMasteredCount(),
       points: profile.points || 0,
       dailyGoalDays: getDailyGoalStreak(),
+      wordsLearned: profile.total_phrases_learned || 0,
+      proficiencyLevel: profile.proficiency_level || null,
     };
 
     const newlyUnlocked: Badge[] = [];
-    
+
     for (const badge of badges) {
-      const isAlreadyUnlocked = userAchievements.some(ua => ua.badgeId === badge.id);
+      const isAlreadyUnlocked = userAchievements.some((ua) => ua.badgeId === badge.id);
       if (isAlreadyUnlocked) continue;
 
       let shouldUnlock = false;
@@ -199,11 +524,21 @@ export const useAchievements = () => {
           shouldUnlock = currentStats.dailyGoalDays >= badge.requirement;
           break;
         case 'lessons_completed':
-          // This would need lesson completion tracking - for now, unlock based on sentences
-          shouldUnlock = currentStats.sentences >= badge.requirement * 5; // Assume 5 sentences per lesson
+          // Aproximação: assume ~5 frases por lição
+          shouldUnlock = currentStats.sentences >= badge.requirement * 5;
           break;
+        case 'words_learned':
+          shouldUnlock = currentStats.wordsLearned >= badge.requirement;
+          break;
+        case 'level_b1':
+          shouldUnlock = currentStats.proficiencyLevel === 'B1' || currentStats.proficiencyLevel === 'B2' || currentStats.proficiencyLevel === 'C1' || currentStats.proficiencyLevel === 'C2';
+          break;
+        case 'level_c2':
+          shouldUnlock = currentStats.proficiencyLevel === 'C2';
+          break;
+        // Tipos dependentes de sistemas futuros (batalhas, social, eventos) são
+        // desbloqueados manualmente via triggerSpecialAchievement ou lógica dedicada.
         default:
-          console.log(`Unknown achievement type: ${badge.type} for badge: ${badge.name}`);
           shouldUnlock = false;
           break;
       }
@@ -216,7 +551,7 @@ export const useAchievements = () => {
 
     if (newlyUnlocked.length > 0) {
       setNewBadges(newlyUnlocked);
-      // Only show celebration popup - no duplicate toasts
+      // Apenas popup de celebração – sem toasts duplicados
     }
   };
 
@@ -313,13 +648,18 @@ export const useAchievements = () => {
       streak: profile?.streak_count || 0,
       sentences: getMasteredCount(),
       points: profile?.points || 0,
+      wordsLearned: profile?.total_phrases_learned || 0,
     };
 
     switch (badge.type) {
       case 'streak_days':
         return Math.min((currentStats.streak / badge.requirement) * 100, 100);
       case 'phrases_mastered':
-        return Math.min((currentStats.sentences / badge.requirement) * 100, 100);
+      case 'sentences_mastered':
+      case 'lessons_completed':
+        return Math.min((currentStats.sentences / (badge.type === 'lessons_completed' ? badge.requirement * 5 : badge.requirement)) * 100, 100);
+      case 'words_learned':
+        return Math.min((currentStats.wordsLearned / badge.requirement) * 100, 100);
       default:
         return 0;
     }
