@@ -501,6 +501,33 @@ export type Database = {
         }
         Relationships: []
       }
+      nps_responses: {
+        Row: {
+          category: string | null
+          created_at: string
+          feedback: string | null
+          id: string
+          score: number | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          score?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          score?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -672,6 +699,87 @@ export type Database = {
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      testimonials: {
+        Row: {
+          after: string | null
+          age: number | null
+          approved: boolean | null
+          avatar_url: string | null
+          before: string | null
+          created_at: string
+          days_using: number | null
+          featured: boolean | null
+          id: string
+          image_url: string | null
+          lessons_completed: number | null
+          level_current: string | null
+          level_start: string | null
+          location: string | null
+          name: string
+          platform: string | null
+          rating: number | null
+          role: string | null
+          text: string
+          title: string
+          updated_at: string
+          user_id: string | null
+          verified: boolean | null
+          video_url: string | null
+        }
+        Insert: {
+          after?: string | null
+          age?: number | null
+          approved?: boolean | null
+          avatar_url?: string | null
+          before?: string | null
+          created_at?: string
+          days_using?: number | null
+          featured?: boolean | null
+          id?: string
+          image_url?: string | null
+          lessons_completed?: number | null
+          level_current?: string | null
+          level_start?: string | null
+          location?: string | null
+          name: string
+          platform?: string | null
+          rating?: number | null
+          role?: string | null
+          text: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+          verified?: boolean | null
+          video_url?: string | null
+        }
+        Update: {
+          after?: string | null
+          age?: number | null
+          approved?: boolean | null
+          avatar_url?: string | null
+          before?: string | null
+          created_at?: string
+          days_using?: number | null
+          featured?: boolean | null
+          id?: string
+          image_url?: string | null
+          lessons_completed?: number | null
+          level_current?: string | null
+          level_start?: string | null
+          location?: string | null
+          name?: string
+          platform?: string | null
+          rating?: number | null
+          role?: string | null
+          text?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+          verified?: boolean | null
+          video_url?: string | null
         }
         Relationships: []
       }
