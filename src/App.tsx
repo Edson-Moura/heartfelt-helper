@@ -39,9 +39,10 @@ import OnboardingComplete from "./pages/OnboardingComplete";
 import WallOfLove from "./pages/Wall-of-Love";
 import Battles from "./pages/Battles";
 import Leaderboard from "./pages/Leaderboard";
-
+import Friends from "./pages/Friends";
+ 
 const queryClient = new QueryClient();
-
+ 
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -81,6 +82,7 @@ const App = () => (
                 <Route path="/wall-of-love" element={<WallOfLove />} />
                 <Route path="/battles" element={<Battles />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/friends" element={<Friends />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
@@ -93,5 +95,5 @@ const App = () => (
     </QueryClientProvider>
   </ErrorBoundary>
 );
-
+ 
 export default App;
