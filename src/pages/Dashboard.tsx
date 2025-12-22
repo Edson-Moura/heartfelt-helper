@@ -70,6 +70,11 @@ const Dashboard = () => {
     return <Navigate to="/auth" replace />;
   }
 
+  // Redirect to onboarding if user hasn't completed it
+  if (profile && !profile.onboarding_completed) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return (
     <>
       <Celebration 

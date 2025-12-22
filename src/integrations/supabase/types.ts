@@ -510,8 +510,13 @@ export type Database = {
           display_name: string | null
           id: string
           last_activity: string | null
+          learning_goal: string | null
           level: string | null
+          onboarding_completed: boolean | null
+          onboarding_completed_at: string | null
           points: number | null
+          preferred_training_mode: string | null
+          proficiency_level: string | null
           streak_count: number | null
           total_phrases_learned: number | null
           updated_at: string
@@ -525,8 +530,13 @@ export type Database = {
           display_name?: string | null
           id?: string
           last_activity?: string | null
+          learning_goal?: string | null
           level?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
           points?: number | null
+          preferred_training_mode?: string | null
+          proficiency_level?: string | null
           streak_count?: number | null
           total_phrases_learned?: number | null
           updated_at?: string
@@ -540,8 +550,13 @@ export type Database = {
           display_name?: string | null
           id?: string
           last_activity?: string | null
+          learning_goal?: string | null
           level?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
           points?: number | null
+          preferred_training_mode?: string | null
+          proficiency_level?: string | null
           streak_count?: number | null
           total_phrases_learned?: number | null
           updated_at?: string

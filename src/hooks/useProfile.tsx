@@ -17,6 +17,11 @@ interface UserProfile {
   points: number;
   created_at: string;
   updated_at: string;
+  learning_goal?: string | null;
+  proficiency_level?: string | null;
+  preferred_training_mode?: string | null;
+  onboarding_completed?: boolean;
+  onboarding_completed_at?: string | null;
 }
 
 export const useProfile = () => {
