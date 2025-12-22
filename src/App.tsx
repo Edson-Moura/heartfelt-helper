@@ -35,6 +35,7 @@ import Metrics from "./pages/Metrics";
 import NotFound from "./pages/NotFound";
 import FreemiumLanding from "./pages/FreemiumLanding";
 import Onboarding from "./pages/Onboarding";
+import OnboardingComplete from "./pages/OnboardingComplete";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/onboarding-complete" element={<OnboardingComplete />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/lessons" element={<Lessons />} />
                 <Route path="/lesson/:lessonId" element={<Lesson />} />
