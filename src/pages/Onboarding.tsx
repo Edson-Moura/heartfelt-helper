@@ -1,16 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Mic, Volume2, CheckCircle, XCircle, Sparkles } from 'lucide-react';
+import { Volume2, CheckCircle, XCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
+import { WelcomeAnimation } from '@/components/onboarding/WelcomeAnimation';
+import { AvatarIntro } from '@/components/onboarding/AvatarIntro';
+import { VoiceTestButton } from '@/components/onboarding/VoiceTestButton';
+import { CompletionCelebration } from '@/components/onboarding/CompletionCelebration';
+import { onboardingAnalytics } from '@/services/OnboardingAnalytics';
 
 interface OnboardingData {
   learningGoal: string;
@@ -28,7 +33,8 @@ const Onboarding = () => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(20);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [showCelebration, setShowCelebration] = useState(false);
   
   const [formData, setFormData] = useState<OnboardingData>({
     learningGoal: '',
@@ -46,14 +52,17 @@ const Onboarding = () => {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
 
   // Demo conversation state
-  const [conversationStep, setConversationStep] = useState(0);
-  const [userResponses, setUserResponses] = useState<string[]>([]);
-  const [currentResponse, setCurrentResponse] = useState('');
-  const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [conversationMessages, setConversationMessages] = useState<Array<{ role: string; text: string }>>([]);
+  const [currentAvatarMessage, setCurrentAvatarMessage] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [voiceUsed, setVoiceUsed] = useState(false);
 
+  // Track step changes for analytics
   useEffect(() => {
-    setProgress((currentStep / 5) * 100);
-  }, [currentStep]);
+    if (user) {
+      onboardingAnalytics.trackStepStarted(currentStep, user.id);
+    }
+  }, [currentStep, user]);
 
   const learningGoals = [
     { value: 'travel', label: 'Viajar para o exterior', icon: '✈️' },
@@ -120,7 +129,7 @@ const Onboarding = () => {
       {
         question: "He works ___ a hospital",
         options: ["in", "at", "on"],
-        correct: 0,
+        correct: 1,
       },
     ],
     advanced: [
@@ -142,22 +151,7 @@ const Onboarding = () => {
     ],
   };
 
-  const conversationSteps = [
-    {
-      alex: "Hi! I'm Alex, your English teacher. What's your name?",
-      prompt: "Tell me your name",
-    },
-    {
-      alex: (name: string) => `Nice to meet you, ${name}! Where are you from?`,
-      prompt: "Tell me where you're from",
-    },
-    {
-      alex: "Wonderful! Why do you want to learn English?",
-      prompt: "Share your motivation",
-    },
-  ];
-
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentStep === 1 && !formData.learningGoal) {
       toast({
         title: "Selecione um objetivo",
@@ -176,12 +170,16 @@ const Onboarding = () => {
       return;
     }
 
-    setCurrentStep(prev => prev + 1);
-  };
+    // Track completion of current step
+    if (user) {
+      onboardingAnalytics.trackStepCompleted(currentStep, user.id, {
+        level_selected: formData.proficiencyLevel,
+        goal_selected: formData.learningGoal,
+      });
+    }
 
-  const handleBack = () => {
-    setCurrentStep(prev => prev - 1);
-  };
+    setCurrentStep(prev => prev + 1);
+  }, [currentStep, formData, toast, user]);
 
   const handleAssessmentAnswer = (answerIndex: number) => {
     const questions = assessmentQuestions[formData.proficiencyLevel as keyof typeof assessmentQuestions];
@@ -198,26 +196,78 @@ const Onboarding = () => {
       } else {
         const score = assessmentAnswers.filter(a => a).length + (isCorrect ? 1 : 0);
         setFormData(prev => ({ ...prev, assessmentScore: score }));
-        handleNext();
+        
+        if (user) {
+          onboardingAnalytics.trackStepCompleted(3, user.id, { score });
+        }
+        
+        setCurrentStep(4);
       }
     }, 1500);
   };
 
-  const handleConversationSubmit = () => {
-    if (!currentResponse.trim()) return;
+  // Initialize conversation with Alex
+  useEffect(() => {
+    if (currentStep === 4 && conversationMessages.length === 0) {
+      setCurrentAvatarMessage("Hi! I'm Alex, your English teacher. What's your name?");
+    }
+  }, [currentStep, conversationMessages.length]);
 
-    setUserResponses([...userResponses, currentResponse]);
-    setCurrentResponse('');
-    setIsAvatarSpeaking(true);
+  const handleVoiceInput = async (transcript: string) => {
+    if (!transcript || isProcessing) return;
 
-    setTimeout(() => {
-      setIsAvatarSpeaking(false);
-      if (conversationStep < conversationSteps.length - 1) {
-        setConversationStep(prev => prev + 1);
-      } else {
-        setTimeout(() => handleNext(), 1000);
+    setVoiceUsed(true);
+    if (user) {
+      onboardingAnalytics.trackVoiceUsed(user.id);
+    }
+
+    setConversationMessages(prev => [...prev, { role: 'user', text: transcript }]);
+    setIsProcessing(true);
+    setCurrentAvatarMessage('');
+
+    try {
+      // Call OpenAI chat function for Alex's response
+      const { data, error } = await supabase.functions.invoke('openai-chat', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: 'You are Alex, a friendly English teacher doing a quick onboarding conversation. Keep responses very short (1-2 sentences). Ask about their name, where they are from, and why they want to learn English. After 3 exchanges, encourage them to continue.',
+            },
+            ...conversationMessages.map(m => ({ role: m.role, content: m.text })),
+            { role: 'user', content: transcript },
+          ],
+        },
+      });
+
+      if (error) throw error;
+
+      const response = data?.response || "Great! Let's start your first lesson!";
+      setCurrentAvatarMessage(response);
+      setConversationMessages(prev => [...prev, { role: 'assistant', text: response }]);
+
+      // After 3 user messages, move to next step
+      if (conversationMessages.filter(m => m.role === 'user').length >= 2) {
+        setTimeout(() => {
+          if (user) {
+            onboardingAnalytics.trackStepCompleted(4, user.id, { voice_used: voiceUsed });
+          }
+          setCurrentStep(5);
+        }, 3000);
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      setCurrentAvatarMessage("Great! Let's continue with your journey!");
+      
+      setTimeout(() => {
+        if (user) {
+          onboardingAnalytics.trackStepCompleted(4, user.id, { voice_used: voiceUsed });
+        }
+        setCurrentStep(5);
+      }, 2000);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFinishOnboarding = async () => {
@@ -236,12 +286,15 @@ const Onboarding = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Bem-vindo! 🎉",
-        description: "Seu perfil foi configurado com sucesso!",
-      });
+      if (user) {
+        onboardingAnalytics.trackOnboardingCompleted(user.id, {
+          level: formData.proficiencyLevel,
+          goal: formData.learningGoal,
+          voice_used: voiceUsed,
+        });
+      }
 
-      navigate('/dashboard');
+      setShowCelebration(true);
     } catch (error) {
       console.error('Error completing onboarding:', error);
       toast({
@@ -249,79 +302,100 @@ const Onboarding = () => {
         description: "Tente novamente",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
+
+  const handleCelebrationContinue = () => {
+    navigate('/onboarding-complete');
+  };
+
+  if (showCelebration) {
+    return (
+      <CompletionCelebration
+        level={formData.proficiencyLevel}
+        goal={learningGoals.find(g => g.value === formData.learningGoal)?.label || formData.learningGoal}
+        onContinue={handleCelebrationContinue}
+      />
+    );
+  }
 
   const renderStep = () => {
     switch (currentStep) {
       case 1:
         return (
           <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="text-center space-y-2">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Bem-vindo ao MyEnglish! 🎉
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Em 5 minutos você terá sua primeira conversa em inglês com IA
-              </p>
-            </div>
+            {showWelcome && (
+              <WelcomeAnimation onComplete={() => setShowWelcome(false)} />
+            )}
+            
+            {!showWelcome && (
+              <>
+                <div className="text-center space-y-2">
+                  <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    Bem-vindo ao MyEnglish! 🎉
+                  </h1>
+                  <p className="text-muted-foreground text-lg">
+                    Em 5 minutos você terá sua primeira conversa em inglês com IA
+                  </p>
+                </div>
 
-            <div className="space-y-4">
-              <Label className="text-lg font-semibold">Qual é seu principal objetivo?</Label>
-              <RadioGroup
-                value={formData.learningGoal}
-                onValueChange={(value) => setFormData({ ...formData, learningGoal: value })}
-                className="grid gap-3"
-              >
-                {learningGoals.map((goal) => (
-                  <Card
-                    key={goal.value}
-                    className={`p-4 cursor-pointer transition-all hover:scale-105 ${
-                      formData.learningGoal === goal.value
-                        ? 'border-primary border-2 bg-primary/5'
-                        : 'border-border'
-                    }`}
-                    onClick={() => setFormData({ ...formData, learningGoal: goal.value })}
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold">Qual é seu principal objetivo?</Label>
+                  <RadioGroup
+                    value={formData.learningGoal}
+                    onValueChange={(value) => setFormData({ ...formData, learningGoal: value })}
+                    className="grid gap-3"
                   >
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value={goal.value} id={goal.value} />
-                      <Label
-                        htmlFor={goal.value}
-                        className="flex items-center space-x-3 cursor-pointer flex-1"
+                    {learningGoals.map((goal) => (
+                      <Card
+                        key={goal.value}
+                        className={`p-4 cursor-pointer transition-all hover:scale-105 ${
+                          formData.learningGoal === goal.value
+                            ? 'border-primary border-2 bg-primary/5'
+                            : 'border-border'
+                        }`}
+                        onClick={() => setFormData({ ...formData, learningGoal: goal.value })}
                       >
-                        <span className="text-2xl">{goal.icon}</span>
-                        <span className="font-medium">{goal.label}</span>
-                      </Label>
-                    </div>
-                  </Card>
-                ))}
-                <Card
-                  className={`p-4 cursor-pointer transition-all hover:scale-105 ${
-                    formData.learningGoal === 'other' ? 'border-primary border-2 bg-primary/5' : 'border-border'
-                  }`}
-                  onClick={() => setFormData({ ...formData, learningGoal: 'other' })}
-                >
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="other" id="other" />
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="other" className="cursor-pointer flex items-center space-x-3">
-                        <span className="text-2xl">🎯</span>
-                        <span className="font-medium">Outro:</span>
-                      </Label>
-                      {formData.learningGoal === 'other' && (
-                        <Input
-                          placeholder="Descreva seu objetivo..."
-                          className="mt-2"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </RadioGroup>
-            </div>
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value={goal.value} id={goal.value} />
+                          <Label
+                            htmlFor={goal.value}
+                            className="flex items-center space-x-3 cursor-pointer flex-1"
+                          >
+                            <span className="text-2xl">{goal.icon}</span>
+                            <span className="font-medium">{goal.label}</span>
+                          </Label>
+                        </div>
+                      </Card>
+                    ))}
+                    <Card
+                      className={`p-4 cursor-pointer transition-all hover:scale-105 ${
+                        formData.learningGoal === 'other' ? 'border-primary border-2 bg-primary/5' : 'border-border'
+                      }`}
+                      onClick={() => setFormData({ ...formData, learningGoal: 'other' })}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <RadioGroupItem value="other" id="other" />
+                        <div className="flex-1 space-y-2">
+                          <Label htmlFor="other" className="cursor-pointer flex items-center space-x-3">
+                            <span className="text-2xl">🎯</span>
+                            <span className="font-medium">Outro:</span>
+                          </Label>
+                          {formData.learningGoal === 'other' && (
+                            <Input
+                              placeholder="Descreva seu objetivo..."
+                              className="mt-2"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  </RadioGroup>
+                </div>
+              </>
+            )}
           </div>
         );
 
@@ -432,75 +506,48 @@ const Onboarding = () => {
         );
 
       case 4:
-        const currentConversation = conversationSteps[conversationStep];
-        const alexMessage =
-          typeof currentConversation.alex === 'function'
-            ? currentConversation.alex(userResponses[0] || 'friend')
-            : currentConversation.alex;
-
         return (
-          <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
+          <div className="space-y-6 animate-in fade-in duration-500 min-h-[600px] flex flex-col">
             <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold flex items-center justify-center space-x-2">
-                <Mic className="h-8 w-8 text-primary" />
-                <span>Sua Primeira Conversa!</span>
+              <h2 className="text-3xl md:text-4xl font-bold flex items-center justify-center space-x-2">
+                <span>🎤 Sua Primeira Conversa!</span>
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-lg">
                 Conheça Alex, seu professor de inglês virtual
               </p>
             </div>
 
             <Card className="flex-1 p-6 flex flex-col items-center justify-center space-y-6 bg-gradient-to-br from-primary/5 to-secondary/5">
-              <div
-                className={`relative transition-all duration-500 ${
-                  isAvatarSpeaking ? 'scale-110' : 'scale-100'
-                }`}
-              >
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-6xl animate-pulse">
-                  👨‍🏫
-                </div>
-                {isAvatarSpeaking && (
-                  <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping" />
-                )}
-              </div>
-
-              <Card className="p-4 max-w-md">
-                <p className="text-lg text-center italic">"{alexMessage}"</p>
-              </Card>
-
-              <div className="w-full max-w-md space-y-3">
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder={currentConversation.prompt}
-                    value={currentResponse}
-                    onChange={(e) => setCurrentResponse(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleConversationSubmit()}
-                    className="flex-1"
-                    disabled={isAvatarSpeaking}
-                  />
-                  <Button
-                    size="icon"
-                    onClick={handleConversationSubmit}
-                    disabled={!currentResponse.trim() || isAvatarSpeaking}
-                  >
-                    <Mic className="h-5 w-5" />
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-muted-foreground">
-                  Ou fale usando o microfone
-                </p>
-              </div>
-
-              {userResponses.length > 0 && (
-                <div className="space-y-2 max-w-md w-full">
-                  <p className="text-sm font-medium text-muted-foreground">Suas respostas:</p>
-                  {userResponses.map((response, idx) => (
-                    <Card key={idx} className="p-3 bg-primary/5">
-                      <p className="text-sm">{response}</p>
-                    </Card>
-                  ))}
-                </div>
+              {currentAvatarMessage && (
+                <AvatarIntro
+                  message={currentAvatarMessage}
+                  autoPlay={true}
+                />
               )}
+
+              <div className="w-full max-w-lg space-y-4">
+                {conversationMessages.length > 0 && (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {conversationMessages.slice(-4).map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg ${
+                          msg.role === 'user'
+                            ? 'bg-primary/10 ml-8'
+                            : 'bg-muted mr-8'
+                        }`}
+                      >
+                        <p className="text-sm">{msg.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <VoiceTestButton
+                  onTranscript={handleVoiceInput}
+                  placeholder="Toque para falar com Alex"
+                />
+              </div>
             </Card>
           </div>
         );
@@ -509,62 +556,17 @@ const Onboarding = () => {
         return (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold flex items-center justify-center space-x-2">
-                <Sparkles className="h-8 w-8 text-primary" />
-                <span>Quase lá! ⚙️</span>
-              </h2>
+              <h2 className="text-3xl font-bold">Quase lá! ⚙️</h2>
               <p className="text-muted-foreground">Escolha suas preferências</p>
             </div>
 
             <Card className="p-6 space-y-6">
               <div className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="daily-reminder"
-                      checked={formData.enableDailyReminder}
-                      onCheckedChange={(checked) =>
-                        setFormData({ ...formData, enableDailyReminder: checked as boolean })
-                      }
-                    />
-                    <Label htmlFor="daily-reminder" className="cursor-pointer">
-                      Notificações diárias de prática
-                    </Label>
-                  </div>
-                  {formData.enableDailyReminder && (
-                    <Input
-                      type="time"
-                      value={formData.dailyReminderTime || '19:00'}
-                      onChange={(e) =>
-                        setFormData({ ...formData, dailyReminderTime: e.target.value })
-                      }
-                      className="ml-6 max-w-xs"
-                    />
-                  )}
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="streak-reminder"
-                    checked={formData.enableStreakReminder}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, enableStreakReminder: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="streak-reminder" className="cursor-pointer">
-                    Lembrete de streak
-                  </Label>
-                </div>
-              </div>
-
-              <div className="space-y-3">
                 <Label className="text-lg font-semibold">Modo de treino preferido:</Label>
                 <RadioGroup
                   value={formData.preferredTrainingMode}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, preferredTrainingMode: value })
-                  }
-                  className="space-y-2"
+                  onValueChange={(value) => setFormData({ ...formData, preferredTrainingMode: value })}
+                  className="space-y-3"
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="conversation" id="conversation" />
@@ -592,6 +594,41 @@ const Onboarding = () => {
                   </div>
                 </RadioGroup>
               </div>
+
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="daily-reminder"
+                    checked={formData.enableDailyReminder}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, enableDailyReminder: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="daily-reminder" className="cursor-pointer">
+                    Notificações diárias de prática
+                  </Label>
+                </div>
+                {formData.enableDailyReminder && (
+                  <Input
+                    type="time"
+                    value={formData.dailyReminderTime}
+                    onChange={(e) => setFormData({ ...formData, dailyReminderTime: e.target.value })}
+                    className="w-32 ml-6"
+                  />
+                )}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="streak-reminder"
+                    checked={formData.enableStreakReminder}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, enableStreakReminder: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="streak-reminder" className="cursor-pointer">
+                    Lembrete de streak
+                  </Label>
+                </div>
+              </div>
             </Card>
           </div>
         );
@@ -602,41 +639,45 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <div className="max-w-3xl mx-auto space-y-6 py-8">
-        <Progress value={progress} className="h-2" />
+    <div className="min-h-screen bg-background">
+      <OnboardingProgress currentStep={currentStep} totalSteps={5} />
+      
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
+        <div className="mb-8">
+          {renderStep()}
+        </div>
 
-        <Card className="p-8">{renderStep()}</Card>
-
-        <div className="flex justify-between">
-          {currentStep > 1 && currentStep !== 4 && (
-            <Button variant="outline" onClick={handleBack} disabled={loading}>
+        {!showWelcome && currentStep !== 4 && (
+          <div className="flex justify-between pt-6">
+            <Button
+              variant="ghost"
+              onClick={() => setCurrentStep(prev => prev - 1)}
+              disabled={currentStep === 1 || loading}
+            >
               Voltar
             </Button>
-          )}
-          <div className={currentStep === 1 ? 'ml-auto' : ''}>
-            {currentStep < 5 && currentStep !== 3 && currentStep !== 4 && (
+            
+            {currentStep < 5 ? (
               <Button
                 onClick={handleNext}
                 disabled={loading}
-                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
                 size="lg"
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
               >
                 Continuar
               </Button>
-            )}
-            {currentStep === 5 && (
+            ) : (
               <Button
                 onClick={handleFinishOnboarding}
                 disabled={loading}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
                 size="lg"
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
               >
-                {loading ? 'Salvando...' : 'Começar Minha Jornada! 🚀'}
+                {loading ? 'Finalizando...' : 'Começar Minha Jornada! 🚀'}
               </Button>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
