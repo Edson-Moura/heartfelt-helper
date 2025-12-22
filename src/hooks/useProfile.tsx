@@ -22,6 +22,10 @@ interface UserProfile {
   preferred_training_mode?: string | null;
   onboarding_completed?: boolean;
   onboarding_completed_at?: string | null;
+  streak_freezes_available?: number;
+  current_level?: number;
+  current_xp?: number;
+  gems?: number;
 }
 
 export const useProfile = () => {

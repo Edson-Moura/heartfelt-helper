@@ -11,6 +11,7 @@ import { OnboardingHeader } from "@/components/onboarding/OnboardingHeader";
 import { SkipOnboardingModal } from "@/components/onboarding/SkipOnboardingModal";
 import whatsappIcon from "@/assets/whatsapp-icon.svg";
 import { useState } from "react";
+import { XPSystem } from "@/components/gamification/XPSystem";
 
 export const Header = () => {
   const { user, signOut, loading } = useAuth();
@@ -108,6 +109,15 @@ export const Header = () => {
         </nav>
 
         <div className="flex items-center gap-1 md:gap-2 lg:gap-3">
+          {user && (
+            <div className="hidden md:block mr-2 min-w-[220px]">
+              <XPSystem
+                displayName={profile?.display_name}
+                currentXP={profile?.current_xp ?? profile?.points}
+                currentLevel={profile?.current_level}
+              />
+            </div>
+          )}
           {/* Mobile/Tablet Menu */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild className="lg:hidden">
