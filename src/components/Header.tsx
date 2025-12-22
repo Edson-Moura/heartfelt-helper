@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Users, Menu, Activity } from "lucide-react";
+import { MessageSquare, User, LogOut, Settings, BookOpen, Home, BarChart3, Trophy, Menu, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Link } from "react-router-dom";
@@ -60,14 +60,6 @@ export const Header = () => {
               <Link to="/metrics" className="text-muted-foreground hover:text-foreground transition-smooth">
                 Métricas
               </Link>
-              <a 
-                href="https://comunidade.myenglishone.com/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-smooth"
-              >
-                Comunidade
-              </a>
             </>
           ) : (
             <>
@@ -80,14 +72,6 @@ export const Header = () => {
               <Link to="/about" className="text-muted-foreground hover:text-foreground transition-smooth">
                 Sobre
               </Link>
-              <a 
-                href="https://comunidade.myenglishone.com/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-smooth"
-              >
-                Comunidade
-              </a>
             </>
           )}
         </nav>
@@ -158,17 +142,7 @@ export const Header = () => {
                       <Activity className="h-5 w-5" />
                       Métricas
                     </Link>
-                    <a 
-                      href="https://comunidade.myenglishone.com/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Users className="h-5 w-5" />
-                      Comunidade
-                    </a>
-                    <Link 
+                    <Link
                       to="/settings" 
                       className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
                       onClick={() => setMenuOpen(false)}
@@ -212,15 +186,6 @@ export const Header = () => {
                     >
                       Sobre
                     </Link>
-                    <a 
-                      href="https://comunidade.myenglishone.com/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 text-foreground hover:text-primary transition-smooth py-2"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      Comunidade
-                    </a>
                   </>
                 )}
               </nav>
@@ -303,16 +268,6 @@ export const Header = () => {
                     <Activity className="mr-2 h-4 w-4" />
                     <span>Métricas</span>
                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <a 
-                    href="https://comunidade.myenglishone.com/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    <span>Comunidade</span>
-                  </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link to="/settings">
