@@ -137,6 +137,51 @@ export type Database = {
         }
         Relationships: []
       }
+      battles: {
+        Row: {
+          battle_type: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          player1_id: string
+          player1_score: number
+          player2_id: string
+          player2_score: number
+          started_at: string
+          status: string
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          battle_type: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          player1_id: string
+          player1_score?: number
+          player2_id: string
+          player2_score?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          battle_type?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          player1_id?: string
+          player1_score?: number
+          player2_id?: string
+          player2_score?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
       bd_ativo: {
         Row: {
           created_at: string
@@ -337,6 +382,51 @@ export type Database = {
           email?: string
           id?: string
           name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          active: boolean
+          community_goal: number | null
+          community_progress: number
+          created_at: string
+          description: string | null
+          end_date: string | null
+          event_type: string | null
+          id: string
+          name: string
+          rewards: Json | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          community_goal?: number | null
+          community_progress?: number
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          event_type?: string | null
+          id?: string
+          name: string
+          rewards?: Json | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          community_goal?: number | null
+          community_progress?: number
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          event_type?: string | null
+          id?: string
+          name?: string
+          rewards?: Json | null
+          start_date?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -883,6 +973,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_gamification: {
+        Row: {
+          battles_lost: number
+          battles_won: number
+          created_at: string
+          current_level: number
+          current_streak: number
+          gems: number
+          id: string
+          last_activity_date: string | null
+          lessons_completed: number
+          longest_streak: number
+          monthly_xp: number
+          perfect_exercises: number
+          streak_freezes_available: number
+          streak_freezes_used: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+          weekly_xp: number
+        }
+        Insert: {
+          battles_lost?: number
+          battles_won?: number
+          created_at?: string
+          current_level?: number
+          current_streak?: number
+          gems?: number
+          id?: string
+          last_activity_date?: string | null
+          lessons_completed?: number
+          longest_streak?: number
+          monthly_xp?: number
+          perfect_exercises?: number
+          streak_freezes_available?: number
+          streak_freezes_used?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+          weekly_xp?: number
+        }
+        Update: {
+          battles_lost?: number
+          battles_won?: number
+          created_at?: string
+          current_level?: number
+          current_streak?: number
+          gems?: number
+          id?: string
+          last_activity_date?: string | null
+          lessons_completed?: number
+          longest_streak?: number
+          monthly_xp?: number
+          perfect_exercises?: number
+          streak_freezes_available?: number
+          streak_freezes_used?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+          weekly_xp?: number
+        }
+        Relationships: []
       }
       user_progress: {
         Row: {
