@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import FreemiumLanding from "./pages/FreemiumLanding";
 import Onboarding from "./pages/Onboarding";
 import OnboardingComplete from "./pages/OnboardingComplete";
+import WallOfLove from "./pages/Wall-of-Love";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const App = () => (
                 <Route path="/rate-limits" element={<RateLimits />} />
                 <Route path="/metrics" element={<Metrics />} />
                 <Route path="/freemium-landing" element={<FreemiumLanding />} />
+                <Route path="/wall-of-love" element={<WallOfLove />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
