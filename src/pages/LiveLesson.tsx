@@ -12,6 +12,8 @@ import { resourcePreloader } from '@/services/ResourcePreloader';
 import { fallbackStrategy } from '@/services/FallbackStrategy';
 import { requestQueue } from '@/services/RequestQueue';
 import { useAdaptiveQuality } from '@/hooks/useAdaptiveQuality';
+import { useFreemiumLimits } from '@/hooks/useFreemiumLimits';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import { logger } from '@/lib/logger';
 import { Badge } from '@/components/ui/badge';
 
@@ -27,6 +29,19 @@ export default function LiveLesson() {
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [cacheStats, setCacheStats] = useState(cacheService.getStats());
   const [preloadStats, setPreloadStats] = useState(resourcePreloader.getStats());
+  const [conversationStartTime, setConversationStartTime] = useState<number | null>(null);
+  const [conversationMinutes, setConversationMinutes] = useState(0);
+  
+  const { 
+    planType,
+    limits,
+    showUpgradeModal,
+    closeUpgradeModal,
+    upgradeTrigger,
+    triggerUpgrade,
+    recordConversationMinutes,
+    getConversationMinutesPercentage
+  } = useFreemiumLimits();
   
   // 🎯 Adaptive Quality
   const { 
@@ -45,6 +60,9 @@ export default function LiveLesson() {
     // Start with greeting
     handleGreeting();
     
+    // Start conversation timer
+    setConversationStartTime(Date.now());
+    
     // Inicia ResourcePreloader
     resourcePreloader.start();
     
@@ -61,6 +79,46 @@ export default function LiveLesson() {
       resourcePreloader.stop();
     };
   }, []);
+
+  // Monitor conversation time for free users
+  useEffect(() => {
+    if (planType !== 'free' || !conversationStartTime) return;
+
+    const interval = setInterval(() => {
+      const elapsedMinutes = Math.floor((Date.now() - conversationStartTime) / 60000);
+      setConversationMinutes(elapsedMinutes);
+
+      // Check limit
+      if (limits && elapsedMinutes >= limits.limits.dailyConversationMinutes) {
+        clearInterval(interval);
+        
+        // Stop any ongoing recording/speaking
+        if (isRecording) {
+          stopRecording();
+        }
+        
+        // Show upgrade modal
+        triggerUpgrade(
+          'conversation_limit',
+          `Você praticou ${elapsedMinutes} minutos hoje! Continue sem limites com Premium.`
+        );
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [planType, conversationStartTime, limits, isRecording]);
+
+  // Record conversation time when leaving page
+  useEffect(() => {
+    return () => {
+      if (conversationStartTime && planType === 'free') {
+        const minutes = Math.floor((Date.now() - conversationStartTime) / 60000);
+        if (minutes > 0) {
+          recordConversationMinutes(minutes);
+        }
+      }
+    };
+  }, [conversationStartTime, planType]);
 
   const handleGreeting = async () => {
     try {
@@ -533,16 +591,34 @@ export default function LiveLesson() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-4">
+    <>
+      <UpgradeModal 
+        open={showUpgradeModal}
+        onClose={closeUpgradeModal}
+        trigger={upgradeTrigger}
+        context={{
+          current: conversationMinutes,
+          limit: limits?.limits.dailyConversationMinutes || 5,
+        }}
+      />
+      
+      <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 p-4">
       <div className="container max-w-4xl mx-auto py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/dashboard')}
-          className="mb-6"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Button>
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/dashboard')}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+          
+          {planType === 'free' && limits && (
+            <Badge variant="secondary" className="text-xs">
+              ⏱️ {conversationMinutes}/{limits.limits.dailyConversationMinutes} min hoje
+            </Badge>
+          )}
+        </div>
 
         <Card className="p-8">
           <div className="flex flex-col items-center gap-8">
@@ -663,5 +739,6 @@ export default function LiveLesson() {
         </Card>
       </div>
     </div>
+    </>
   );
 }

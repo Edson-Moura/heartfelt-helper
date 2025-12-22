@@ -8,6 +8,7 @@ import { useNotificationScheduler } from '@/hooks/useNotificationScheduler';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { Navigate, Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
+import { FreemiumBanner } from '@/components/FreemiumBanner';
 import { Badge as AchievementBadge } from '@/components/Badge';
 import { LevelSystem } from '@/components/LevelSystem';
 import { Celebration } from '@/components/Celebration';
@@ -79,6 +80,7 @@ const Dashboard = () => {
       
       <div className="min-h-screen bg-gradient-subtle">
       <Header />
+      <FreemiumBanner />
       
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
