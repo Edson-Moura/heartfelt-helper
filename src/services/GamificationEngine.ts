@@ -172,11 +172,15 @@ class GamificationEngine {
       }
     }
 
+    // Atualiza perfil com streak
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
         streak_count: newStreak,
         last_activity: todayStr,
+        // bônus especial de Streak Freeze ao atingir 30 dias
+        streak_freezes_available:
+          profile.streak_freezes_available ?? 1 + (newStreak === 30 ? 1 : 0),
       })
       .eq("user_id", userId);
 
@@ -191,10 +195,22 @@ class GamificationEngine {
         current_streak: newStreak,
         longest_streak: newLongest,
         last_activity_date: todayStr,
+        streak_freezes_available:
+          (gamification.streak_freezes_available ?? 1) + (newStreak === 30 ? 1 : 0),
       })
       .eq("user_id", userId);
 
     if (gamificationError) throw gamificationError;
+
+    // Recompensas de marcos de streak (XP / Gems)
+    const reward = await this.checkStreakMilestone(newStreak);
+    if (reward) {
+      if (reward.type === "xp") {
+        await this.addXP(userId, reward.amount, "streak_milestone");
+      } else if (reward.type === "gems") {
+        await this.addGems(userId, reward.amount, "streak_milestone");
+      }
+    }
 
     return {
       current: newStreak,
@@ -228,9 +244,15 @@ class GamificationEngine {
   }
 
   async checkStreakMilestone(streak: number): Promise<Reward | null> {
-    if (streak === 7) return { type: "gems", amount: 20, description: "Streak de 7 dias" };
-    if (streak === 30) return { type: "gems", amount: 50, description: "Streak de 30 dias" };
-    if (streak === 100) return { type: "gems", amount: 100, description: "Streak de 100 dias" };
+    // Recompensas alinhadas ao plano de marcos de streak
+    // 7 dias: 100 XP
+    if (streak === 7) return { type: "xp", amount: 100, description: "Semana Perfeita" };
+    // 30 dias: 500 XP (Streak Freeze extra já aplicado em updateStreak)
+    if (streak === 30) return { type: "xp", amount: 500, description: "Mês Dedicado" };
+    // 100 dias: 2000 XP
+    if (streak === 100) return { type: "xp", amount: 2000, description: "Centurião" };
+    // 365 dias: recompensa especial em gems para reforçar a conquista
+    if (streak === 365) return { type: "gems", amount: 200, description: "Lenda" };
     return null;
   }
 
