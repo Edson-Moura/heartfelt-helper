@@ -50,6 +50,21 @@ export const useDailyChallenges = () => {
     const today = new Date().toISOString().split("T")[0];
 
     try {
+      // Carrega nível do usuário para personalizar os desafios
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("level, proficiency_level")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Erro ao carregar perfil para desafios diários:", profileError);
+      }
+
+      const userLevelTag = (profile?.proficiency_level || profile?.level || "")
+        .toString()
+        .toLowerCase();
+
       // Garantir que o usuário tenha desafios de hoje
       const { data: templates, error: templatesError } = await supabase
         .from("daily_challenges")
@@ -59,9 +74,23 @@ export const useDailyChallenges = () => {
       if (templatesError) {
         console.error("Erro ao carregar desafios base:", templatesError);
       } else if (templates && templates.length) {
-        const main = templates.find((c) => c.challenge_type === "main");
-        const secondary = templates.find((c) => c.challenge_type === "secondary");
-        const bonus = templates.find((c) => c.challenge_type === "bonus");
+        // Tenta filtrar desafios pela dificuldade alinhada ao nível do usuário.
+        // Ex.: perfil.level = 'beginner' → desafios com difficulty = 'beginner'.
+        let candidateTemplates = templates as DailyChallenge[];
+
+        if (userLevelTag) {
+          const levelMatched = candidateTemplates.filter((c) =>
+            (c.difficulty || "").toLowerCase() === userLevelTag
+          );
+
+          if (levelMatched.length > 0) {
+            candidateTemplates = levelMatched;
+          }
+        }
+
+        const main = candidateTemplates.find((c) => c.challenge_type === "main");
+        const secondary = candidateTemplates.find((c) => c.challenge_type === "secondary");
+        const bonus = candidateTemplates.find((c) => c.challenge_type === "bonus");
 
         const selected = [main, secondary, bonus].filter(Boolean) as DailyChallenge[];
 
