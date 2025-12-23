@@ -50,7 +50,7 @@ export const useDailyChallenges = () => {
     const today = new Date().toISOString().split("T")[0];
 
     try {
-      // Carrega nível do usuário para personalizar os desafios
+      // Carrega nível do usuário para personalizar e equilibrar os desafios
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("level, proficiency_level")
@@ -61,11 +61,45 @@ export const useDailyChallenges = () => {
         console.error("Erro ao carregar perfil para desafios diários:", profileError);
       }
 
-      const userLevelTag = (profile?.proficiency_level || profile?.level || "")
-        .toString()
-        .toLowerCase();
+      const normalizeTag = (value?: string | null) =>
+        (value ?? "").toString().trim().toLowerCase();
 
-      // Garantir que o usuário tenha desafios de hoje
+      const levelTag = normalizeTag(profile?.level);
+      const proficiencyTag = normalizeTag(profile?.proficiency_level);
+      const userLevelTag = proficiencyTag || levelTag;
+
+      // Mapeia nível/proficiência (A1/A2/B1/B2...) para grupos de dificuldade
+      const getDifficultyGroup = (tag: string): "beginner" | "intermediate" | "advanced" | "" => {
+        if (!tag) return "";
+        if (["a1", "a2", "beginner"].includes(tag)) return "beginner";
+        if (["b1", "b2", "intermediate"].includes(tag)) return "intermediate";
+        if (["c1", "c2", "advanced"].includes(tag)) return "advanced";
+        return "";
+      };
+
+      const difficultyGroup = getDifficultyGroup(userLevelTag);
+
+      // Evita repetir o mesmo template nos últimos 3 dias
+      const cooldownDays = 3;
+      const cooldownStartDate = new Date();
+      cooldownStartDate.setDate(cooldownStartDate.getDate() - cooldownDays);
+      const cooldownStart = cooldownStartDate.toISOString().split("T")[0];
+
+      const { data: recentUserChallenges, error: recentError } = await supabase
+        .from("user_daily_challenges")
+        .select("challenge_id, challenge_date")
+        .eq("user_id", user.id)
+        .gte("challenge_date", cooldownStart);
+
+      if (recentError) {
+        console.error("Erro ao carregar desafios recentes do usuário:", recentError);
+      }
+
+      const recentChallengeIds = new Set(
+        (recentUserChallenges || []).map((c: any) => c.challenge_id)
+      );
+
+      // Garante que o usuário tenha desafios de hoje
       const { data: templates, error: templatesError } = await supabase
         .from("daily_challenges")
         .select("*")
@@ -74,23 +108,92 @@ export const useDailyChallenges = () => {
       if (templatesError) {
         console.error("Erro ao carregar desafios base:", templatesError);
       } else if (templates && templates.length) {
-        // Tenta filtrar desafios pela dificuldade alinhada ao nível do usuário.
-        // Ex.: perfil.level = 'beginner' → desafios com difficulty = 'beginner'.
-        let candidateTemplates = templates as DailyChallenge[];
+        // Aplica cooldown de templates
+        let baseTemplates = (templates as DailyChallenge[]).filter(
+          (t) => !recentChallengeIds.has(t.id)
+        );
 
-        if (userLevelTag) {
-          const levelMatched = candidateTemplates.filter((c) =>
-            (c.difficulty || "").toLowerCase() === userLevelTag
-          );
-
-          if (levelMatched.length > 0) {
-            candidateTemplates = levelMatched;
-          }
+        // Se o cooldown filtrar tudo, volta a considerar todos os templates ativos
+        if (!baseTemplates.length) {
+          baseTemplates = templates as DailyChallenge[];
         }
 
-        const main = candidateTemplates.find((c) => c.challenge_type === "main");
-        const secondary = candidateTemplates.find((c) => c.challenge_type === "secondary");
-        const bonus = candidateTemplates.find((c) => c.challenge_type === "bonus");
+        const beginner = baseTemplates.filter(
+          (c) => (c.difficulty || "").toLowerCase() === "beginner"
+        );
+        const intermediate = baseTemplates.filter(
+          (c) => (c.difficulty || "").toLowerCase() === "intermediate"
+        );
+        const advanced = baseTemplates.filter(
+          (c) => (c.difficulty || "").toLowerCase() === "advanced"
+        );
+
+        let easyPool: DailyChallenge[] = [];
+        let mediumPool: DailyChallenge[] = [];
+        let hardPool: DailyChallenge[] = [];
+
+        // "Pacote diário": 1 fácil, 1 médio, 1 difícil relativo ao nível do usuário
+        switch (difficultyGroup) {
+          case "beginner":
+            easyPool = beginner.length ? beginner : baseTemplates;
+            mediumPool = intermediate.length ? intermediate : baseTemplates;
+            hardPool = advanced.length
+              ? advanced
+              : intermediate.length
+                ? intermediate
+                : baseTemplates;
+            break;
+          case "intermediate":
+            easyPool = beginner.length ? beginner : baseTemplates;
+            mediumPool = intermediate.length ? intermediate : baseTemplates;
+            hardPool = advanced.length ? advanced : intermediate.length
+              ? intermediate
+              : baseTemplates;
+            break;
+          case "advanced":
+            easyPool = intermediate.length ? intermediate : baseTemplates;
+            mediumPool = advanced.length ? advanced : baseTemplates;
+            hardPool = advanced.length ? advanced : baseTemplates;
+            break;
+          default:
+            // Sem nível definido: usa distribuição equilibrada com fallback
+            easyPool = beginner.length ? beginner : baseTemplates;
+            mediumPool = intermediate.length ? intermediate : baseTemplates;
+            hardPool = advanced.length
+              ? advanced
+              : intermediate.length
+                ? intermediate
+                : baseTemplates;
+            break;
+        }
+
+        const usedTemplateIds = new Set<string>();
+
+        const pickChallenge = (
+          pools: DailyChallenge[][],
+          type: ChallengeType
+        ): DailyChallenge | null => {
+          for (const pool of pools) {
+            const found = pool.find(
+              (c) => c.challenge_type === type && !usedTemplateIds.has(c.id)
+            );
+            if (found) {
+              usedTemplateIds.add(found.id);
+              return found;
+            }
+          }
+          return null;
+        };
+
+        const main =
+          pickChallenge([hardPool, mediumPool, easyPool, baseTemplates], "main") ||
+          undefined;
+        const secondary =
+          pickChallenge([mediumPool, easyPool, hardPool, baseTemplates], "secondary") ||
+          undefined;
+        const bonus =
+          pickChallenge([easyPool, mediumPool, hardPool, baseTemplates], "bonus") ||
+          undefined;
 
         const selected = [main, secondary, bonus].filter(Boolean) as DailyChallenge[];
 
