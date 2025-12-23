@@ -16,10 +16,13 @@ import { useFreemiumLimits } from '@/hooks/useFreemiumLimits';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import { logger } from '@/lib/logger';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/useAuth';
+import { gamificationEngine } from '@/services/GamificationEngine';
 
 export default function LiveLesson() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -51,7 +54,7 @@ export default function LiveLesson() {
     getRecommendation,
     networkInfo 
   } = useAdaptiveQuality();
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const pollIntervalRef = useRef<number | null>(null);
@@ -590,6 +593,34 @@ export default function LiveLesson() {
     };
   }, []);
 
+  const handleSessionComplete = async () => {
+    if (!user) return;
+
+    try {
+      const xpAmount = 30; // XP base por sessão de conversação
+
+      await gamificationEngine.addXP(user.id, xpAmount, "live_lesson");
+      await gamificationEngine.updateStreak(user.id);
+      await gamificationEngine.updateChallengeProgress(user.id, "daily_conversation", 1);
+
+      const leveledUp = await gamificationEngine.checkLevelUp(user.id);
+
+      toast({
+        title: "Sessão registrada",
+        description: `+${xpAmount} XP adicionados${leveledUp ? " • Você subiu de nível!" : ""}`,
+      });
+    } catch (error) {
+      logger.error("LiveLesson: Gamification failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      }, "LiveLesson");
+      toast({
+        title: "Erro ao registrar progresso",
+        description: "Sua sessão foi concluída, mas não conseguimos salvar o XP. Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <UpgradeModal 
@@ -670,6 +701,19 @@ export default function LiveLesson() {
                 </>
               )}
             </Button>
+
+            {user && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSessionComplete}
+                disabled={isRecording || isProcessing || isSpeaking}
+                className="w-full max-w-xs flex items-center justify-center gap-2"
+              >
+                <Gauge className="h-4 w-4" />
+                Registrar sessão e ganhar XP
+              </Button>
+            )}
 
             {/* System Stats */}
             <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
