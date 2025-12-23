@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { gamificationEngine } from "@/services/GamificationEngine";
+import { useToast } from "@/hooks/use-toast";
 
 export type ChallengeType = "main" | "secondary" | "bonus";
 
@@ -31,6 +33,7 @@ export const useDailyChallenges = () => {
   const { user } = useAuth();
   const [challenges, setChallenges] = useState<UserDailyChallenge[]>([]);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -119,18 +122,70 @@ export const useDailyChallenges = () => {
   const completeChallenge = async (userChallengeId: string) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from("user_daily_challenges")
-      .update({ completed: true, completed_at: new Date().toISOString() })
-      .eq("id", userChallengeId)
-      .eq("user_id", user.id);
+    try {
+      // Marca como concluído no banco
+      const { error: updateError } = await supabase
+        .from("user_daily_challenges")
+        .update({ completed: true, completed_at: new Date().toISOString() })
+        .eq("id", userChallengeId)
+        .eq("user_id", user.id);
 
-    if (error) {
-      console.error("Erro ao completar desafio:", error);
-      return;
+      if (updateError) {
+        console.error("Erro ao completar desafio:", updateError);
+        toast({
+          title: "Não foi possível concluir o desafio",
+          description: "Tente novamente em alguns instantes.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Busca recompensas do desafio concluído
+      const { data, error: fetchError } = await supabase
+        .from("user_daily_challenges")
+        .select(
+          `completed, daily_challenges!inner (title, xp_reward, gems_reward)`
+        )
+        .eq("id", userChallengeId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error("Erro ao buscar desafio concluído:", fetchError);
+      } else if (data?.completed && data.daily_challenges) {
+        const xp = data.daily_challenges.xp_reward ?? 0;
+        const gems = data.daily_challenges.gems_reward ?? 0;
+
+        try {
+          if (xp > 0) {
+            await gamificationEngine.addXP(user.id, xp, "daily_challenge_complete");
+          }
+          if (gems > 0) {
+            await gamificationEngine.addGems(user.id, gems, "daily_challenge_complete");
+          }
+
+          if (xp > 0 || gems > 0) {
+            const parts = [] as string[];
+            if (xp > 0) parts.push(`${xp} XP`);
+            if (gems > 0) parts.push(`${gems} gems`);
+
+            toast({
+              title: "Desafio concluído!",
+              description: `Você ganhou ${parts.join(" e ")}.`,
+            });
+          }
+        } catch (rewardError) {
+          console.error("Erro ao aplicar recompensas do desafio:", rewardError);
+          toast({
+            title: "Desafio concluído, mas houve um erro nas recompensas",
+            description: "Seu progresso foi salvo, tente atualizar a página.",
+            variant: "destructive",
+          });
+        }
+      }
+    } finally {
+      await loadTodayChallenges();
     }
-
-    await loadTodayChallenges();
   };
 
   return {
